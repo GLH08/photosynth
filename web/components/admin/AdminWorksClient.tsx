@@ -1,21 +1,21 @@
 "use client";
 
 /**
- * /admin 作品管理表（DESIGN 4.3-⑫，M6）：
- * - 筛选 tabs（全部/已上架/未列出/已下架）+ 类型下拉 + 搜索（标题/提示词 LIKE）；
- * - cursor 分页（上一页栈 + 下一页）；stats 摘要条；
- * - 行内操作：编辑（展开行内表单改标题/提示词/标签/专辑 → PATCH）、上架/下架、
+ * /admin 作品管理表（DESIGN 4.3-⑫，M6；无发布流）：
+ * - 类型下拉 + 搜索（标题/提示词 LIKE）；
+ * - cursor 分页（上一页栈 + 下一页）；stats 摘要条（总数/图片/视频/精选）；
+ * - 行内操作：编辑（展开行内表单改标题/提示词/标签/专辑 → PATCH）、
  *   删除二次确认（第一步变「确认删除?」Danger，4s 未确认自动撤销；DELETE ?confirm=true）；
  * - 「登记作品」→ /admin/works/new；缩略图 48px contain（视频用 poster）；
  * - 401 → 跳登录页；操作反馈统一 toast。
  */
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, Fragment, type FormEvent } from "react";
 
 import { useToast } from "@/components/Toast";
 import { ApiClientError, buildAdminWorksQuery, clientGet, clientSend, type AdminWorksQuery } from "@/lib/api";
-import type { AdminAlbum, AdminTag, AdminWork, AdminWorksPage, Visibility } from "@/lib/types";
+import type { AdminAlbum, AdminTag, AdminWork, AdminWorksPage } from "@/lib/types";
 
 interface Props {
   initial: AdminWorksPage | null;
@@ -31,25 +31,6 @@ interface EditForm {
   albumSlug: string; // "" = 无专辑
 }
 
-const VIS_TABS: { value: Visibility | undefined; label: string }[] = [
-  { value: undefined, label: "全部" },
-  { value: "public", label: "已上架" },
-  { value: "unlisted", label: "未列出" },
-  { value: "hidden", label: "已下架" },
-];
-
-const VIS_BADGE: Record<Visibility, string> = {
-  public: "badge-public",
-  unlisted: "badge-unlisted",
-  hidden: "badge-hidden",
-};
-
-const VIS_LABEL: Record<Visibility, string> = {
-  public: "已上架",
-  unlisted: "未列出",
-  hidden: "已下架",
-};
-
 function parseTagInput(raw: string): string[] {
   return raw
     .split(/[,，\s]+/)
@@ -59,6 +40,7 @@ function parseTagInput(raw: string): string[] {
 
 export default function AdminWorksClient({ initial, initialQuery, albums, tags }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
   const toast = useToast();
 
   const [data, setData] = useState<AdminWorksPage | null>(initial);
@@ -81,16 +63,16 @@ export default function AdminWorksClient({ initial, initialQuery, albums, tags }
   stackRef.current = cursorStack;
   const deleteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 401 统一跳登录
+  // 401 统一跳登录（带 next 回跳）
   const guard = useCallback(
     (err: unknown): boolean => {
       if (err instanceof ApiClientError && err.status === 401) {
-        router.replace("/admin/login");
+        router.replace(`/admin/login?next=${encodeURIComponent(pathname)}`);
         return true;
       }
       return false;
     },
-    [router],
+    [router, pathname],
   );
 
   const load = useCallback(
@@ -217,15 +199,6 @@ export default function AdminWorksClient({ initial, initialQuery, albums, tags }
     );
   };
 
-  const toggleVisibility = (w: AdminWork) => {
-    const publish = w.visibility !== "public";
-    setBusyId(w.id);
-    void mutate(
-      () => clientSend("POST", `/api/admin/works/${w.id}/${publish ? "publish" : "unpublish"}`),
-      publish ? `「${w.title || w.id}」已上架` : `「${w.title || w.id}」已下架`,
-    );
-  };
-
   const onDelete = (w: AdminWork) => {
     if (deleteConfirmId !== w.id) {
       setDeleteConfirmId(w.id); // 第一次点击：进入二次确认态
@@ -259,31 +232,14 @@ export default function AdminWorksClient({ initial, initialQuery, albums, tags }
       {stats && (
         <div className="admin-stats mono" aria-label="作品统计">
           <span>共 {stats.total}</span>
-          <span className="stat-public">上架 {stats.public}</span>
-          <span className="stat-unlisted">未列出 {stats.unlisted}</span>
-          <span className="stat-hidden">下架 {stats.hidden}</span>
           <span>图片 {stats.images}</span>
           <span>视频 {stats.videos}</span>
           <span>精选 {stats.featured}</span>
         </div>
       )}
 
-      {/* 筛选 tabs + 类型 + 搜索 */}
+      {/* 类型 + 搜索 */}
       <div className="admin-toolbar">
-        <div className="admin-tabs" role="tablist" aria-label="可见性筛选">
-          {VIS_TABS.map((tab) => (
-            <button
-              key={tab.label}
-              type="button"
-              role="tab"
-              aria-selected={query.visibility === tab.value}
-              className={`admin-tab${query.visibility === tab.value ? " active" : ""}`}
-              onClick={() => applyQuery({ visibility: tab.value })}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
         <div className="admin-toolbar-right">
           <select
             className="form-select"
@@ -332,7 +288,6 @@ export default function AdminWorksClient({ initial, initialQuery, albums, tags }
               <th scope="col">类型</th>
               <th scope="col">专辑</th>
               <th scope="col">标签</th>
-              <th scope="col">可见性</th>
               <th scope="col">时间</th>
               <th scope="col">操作</th>
             </tr>
@@ -374,9 +329,6 @@ export default function AdminWorksClient({ initial, initialQuery, albums, tags }
                     {w.tags.length > 2 && <span className="mini-chip more">+{w.tags.length - 2}</span>}
                     {w.tags.length === 0 && <span className="cell-dim">—</span>}
                   </td>
-                  <td>
-                    <span className={`badge ${VIS_BADGE[w.visibility]}`}>{VIS_LABEL[w.visibility]}</span>
-                  </td>
                   <td className="cell-dim mono">
                     {(w.published_at ?? w.created_at ?? "").slice(0, 10) || "—"}
                   </td>
@@ -389,14 +341,6 @@ export default function AdminWorksClient({ initial, initialQuery, albums, tags }
                         onClick={() => (editingId === w.id ? setEditingId(null) : startEdit(w))}
                       >
                         {editingId === w.id ? "收起" : "编辑"}
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-ghost btn-sm"
-                        disabled={busyId === w.id}
-                        onClick={() => toggleVisibility(w)}
-                      >
-                        {w.visibility !== "public" ? "上架" : "下架"}
                       </button>
                       <button
                         type="button"

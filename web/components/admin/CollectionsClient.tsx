@@ -12,7 +12,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import { useToast } from "@/components/Toast";
 import { ApiClientError, clientGet, clientSend } from "@/lib/api";
 import type { AdminAlbum, AdminTag, AlbumKind } from "@/lib/types";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 interface Props {
   initialAlbums: AdminAlbum[];
@@ -56,6 +56,7 @@ const KIND_LABEL: Record<AlbumKind, string> = {
 
 export default function CollectionsClient({ initialAlbums, initialTags }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
   const toast = useToast();
   const [albums, setAlbums] = useState<AdminAlbum[]>(initialAlbums);
   const [tags, setTags] = useState<AdminTag[]>(initialTags);
@@ -68,12 +69,12 @@ export default function CollectionsClient({ initialAlbums, initialTags }: Props)
   const guard = useCallback(
     (err: unknown): boolean => {
       if (err instanceof ApiClientError && err.status === 401) {
-        router.replace("/admin/login");
+        router.replace(`/admin/login?next=${encodeURIComponent(pathname)}`);
         return true;
       }
       return false;
     },
-    [router],
+    [router, pathname],
   );
 
   // 删除二次确认 4s 自动撤销

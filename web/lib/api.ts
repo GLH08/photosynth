@@ -10,7 +10,6 @@ import type {
   SortOrder,
   StatsResponse,
   TagInfo,
-  Visibility,
   WorkDetailResponse,
   WorksPage,
   WorkType,
@@ -180,7 +179,6 @@ async function unwrap<T>(r: Response): Promise<T> {
 // ---------------------------------------------------------------- 管理端（client-safe：SSR 门禁见 lib/admin.ts）
 
 export interface AdminWorksQuery {
-  visibility?: Visibility;
   type?: WorkType;
   q?: string;
   cursor?: string;
@@ -189,7 +187,6 @@ export interface AdminWorksQuery {
 
 export function buildAdminWorksQuery(q: AdminWorksQuery): string {
   const sp = new URLSearchParams();
-  if (q.visibility) sp.set("visibility", q.visibility);
   if (q.type) sp.set("type", q.type);
   if (q.q) sp.set("q", q.q);
   if (q.cursor) sp.set("cursor", q.cursor);

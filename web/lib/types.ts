@@ -3,7 +3,6 @@
 export type WorkType = "image" | "video";
 export type RatioBucket = "portrait" | "square" | "landscape";
 export type SortOrder = "latest" | "oldest";
-export type Visibility = "public" | "unlisted" | "hidden";
 export type AlbumKind = "image" | "video" | "mixed";
 
 export interface TagBrief {
@@ -64,7 +63,6 @@ export interface WorkDetail extends WorkListItem {
   parameters: Record<string, unknown>;
   reference_images: ReferenceImage[];
   storage_backend: string;
-  visibility: Visibility;
   source_meta: unknown;
   created_at: string;
   updated_at: string;
@@ -111,9 +109,6 @@ export interface AdminWork extends WorkDetail {
 
 export interface AdminStats {
   total: number;
-  public: number;
-  unlisted: number;
-  hidden: number;
   images: number;
   videos: number;
   featured: number;

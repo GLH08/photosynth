@@ -3,18 +3,18 @@
 /**
  * 登记作品表单（DESIGN 3.2 登记契约 + 4.3-⑪，M6）：
  * 分区表单：基本信息 / 媒体 URL 与尺寸 / 提示词 / 参数 JSON / 参考图有序列表 /
- * 专辑标签 / 可见性与精选 / 溯源。
+ * 专辑标签 / 精选 / 溯源。
  * 校验：width/height 必填 >0；prompt 必填；URL 即时校验 https（onBlur+onChange）；
  * video 必带 poster_url + duration_seconds（image 禁带）；parameters 必须为 JSON 对象。
  * 提交 POST /api/admin/works：201 登记成功 / 200 skipped 幂等提示 / 422 校验错误 toast。
  */
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
 import { useToast } from "@/components/Toast";
 import { ApiClientError, clientSend } from "@/lib/api";
-import type { AdminAlbum, AdminTag, Visibility, WorkType } from "@/lib/types";
+import type { AdminAlbum, AdminTag, WorkType } from "@/lib/types";
 
 interface Props {
   albums: AdminAlbum[];
@@ -44,7 +44,6 @@ interface FormState {
   duration_seconds: string;
   album_slug: string;
   tag_slugs: string;
-  visibility: Visibility;
   featured: boolean;
   storage_backend: string;
   external_file_id: string;
@@ -69,7 +68,6 @@ const INITIAL: FormState = {
   duration_seconds: "",
   album_slug: "",
   tag_slugs: "",
-  visibility: "public",
   featured: false,
   storage_backend: "chevereto",
   external_file_id: "",
@@ -93,6 +91,7 @@ function parseTagInput(raw: string): string[] {
 
 export default function WorkForm({ albums, tags }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
   const toast = useToast();
   const [f, setF] = useState<FormState>(INITIAL);
   const [submitting, setSubmitting] = useState(false);
@@ -200,7 +199,6 @@ export default function WorkForm({ albums, tags }: Props) {
       album_slug: f.album_slug || null,
       tag_slugs: parseTagInput(f.tag_slugs),
       featured: f.featured,
-      visibility: f.visibility,
     };
 
     try {
@@ -221,7 +219,7 @@ export default function WorkForm({ albums, tags }: Props) {
       router.refresh();
     } catch (err) {
       if (err instanceof ApiClientError && err.status === 401) {
-        router.replace("/admin/login");
+        router.replace(`/admin/login?next=${encodeURIComponent(pathname)}`);
         return;
       }
       toast.push(err instanceof Error ? err.message : "登记失败", "error");
@@ -513,9 +511,9 @@ export default function WorkForm({ albums, tags }: Props) {
         </button>
       </section>
 
-      {/* ---------- 专辑 / 标签 / 可见性 ---------- */}
-      <section className="form-section" aria-label="策展与可见性">
-        <h2 className="form-section-title">专辑 / 标签 / 可见性</h2>
+      {/* ---------- 专辑 / 标签 / 精选 ---------- */}
+      <section className="form-section" aria-label="策展与精选">
+        <h2 className="form-section-title">专辑 / 标签 / 精选</h2>
         <div className="form-grid">
           <label className="form-field">
             <span className="form-label">所属专辑</span>
@@ -548,18 +546,6 @@ export default function WorkForm({ albums, tags }: Props) {
                 </option>
               ))}
             </datalist>
-          </label>
-          <label className="form-field">
-            <span className="form-label">可见性</span>
-            <select
-              className="form-select"
-              value={f.visibility}
-              onChange={(e) => set("visibility", e.target.value as Visibility)}
-            >
-              <option value="public">public · 全站展示</option>
-              <option value="unlisted">unlisted · 仅直链可见</option>
-              <option value="hidden">hidden · 下架</option>
-            </select>
           </label>
           <label className="form-field checkbox-field">
             <input
