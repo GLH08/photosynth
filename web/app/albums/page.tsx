@@ -6,6 +6,7 @@
 import type { Metadata } from "next";
 
 import AlbumCard from "@/components/AlbumCard";
+import { AlbumCreateButton, AlbumManageSlot } from "@/components/CollectionManage";
 import EmptyState from "@/components/EmptyState";
 import { getAlbums, resolveAlbumCovers } from "@/lib/api";
 
@@ -28,12 +29,20 @@ export default async function AlbumsPage() {
         <p className="page-desc">
           按主题策展的作品合集。封面为专辑自定义图或首张作品缩略图，计数为专辑内全部作品。
         </p>
+        <div className="page-head-actions">
+          <AlbumCreateButton />
+        </div>
       </header>
 
       {albums.length > 0 ? (
         <div className="album-grid" style={{ paddingBottom: 48 }}>
           {albums.map((album, i) => (
-            <AlbumCard key={album.slug} album={album} cover={covers[i] ?? null} />
+            <div className="album-cell" key={album.slug}>
+              <AlbumCard album={album} cover={covers[i] ?? null} />
+              <div className="album-cell-manage">
+                <AlbumManageSlot album={album} />
+              </div>
+            </div>
           ))}
         </div>
       ) : (
@@ -41,7 +50,7 @@ export default async function AlbumsPage() {
           variant="site"
           copy={{
             title: "还没有专辑",
-            desc: "去管理台创建第一个专辑，把同主题的作品收进一起陈列。",
+            desc: "用右上角「＋ 新建专辑」创建第一个专辑，把同主题的作品收进一起陈列。",
           }}
         />
       )}

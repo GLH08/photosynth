@@ -50,7 +50,9 @@ def mk_work(
     w: int = 1000,
     h: int = 1000,
     featured: bool = False,
+    created_at: str | None = None,
     published_at: str | None = None,
+    null_published: bool = False,
     album: Album | None = None,
     tags: tuple[str, ...] = (),
     title: str | None = None,
@@ -59,7 +61,7 @@ def mk_work(
     reference_images: list | None = None,
     negative_prompt: str | None = None,
 ) -> Work:
-    ts = published_at or f"2026-09-{idx:02d}T08:00:00Z"
+    ts = created_at or published_at or f"2026-09-{idx:02d}T08:00:00Z"
     is_video = type == "video"
     work = Work(
         id=f"wk_test{idx:03d}",
@@ -83,7 +85,7 @@ def mk_work(
         album_id=album.id if album else None,
         featured=1 if featured else 0,
         created_at=ts,
-        published_at=ts,
+        published_at=None if null_published else ts,
         updated_at=ts,
     )
     session.add(work)
@@ -194,6 +196,66 @@ def test_sort_oldest_reverses(client, db):
     assert [it["id"] for it in p2["items"]] == ["wk_test003"]
 
 
+def test_pagination_same_timestamp_deterministic_order(client, db):
+    """Build-E【1】回归：批量导入同 created_at 时顺序确定性（id DESC），翻页无重无漏。"""
+    for i in range(1, 31):
+        mk_work(db, i, created_at="2026-10-01T12:00:00Z")
+    paged: list[str] = []
+    cursor = None
+    while True:
+        url = "/api/works?limit=7" + (f"&cursor={cursor}" if cursor else "")
+        body = client.get(url).json()
+        paged.extend(it["id"] for it in body["items"])
+        if not body["has_more"]:
+            assert body["next_cursor"] is None
+            break
+        cursor = body["next_cursor"]
+    assert paged == [f"wk_test{i:03d}" for i in range(30, 0, -1)]
+    assert len(set(paged)) == 30
+
+
+def test_pagination_includes_null_published_at(client, db):
+    """Build-E【1】回归：published_at 为 NULL 的行不被提前终止（排序键用 created_at）。"""
+    for i in range(1, 6):
+        mk_work(db, i, null_published=(i % 2 == 0))  # 偶数行 published_at 缺失
+    body = client.get("/api/works?limit=48").json()
+    assert body["total"] == 5
+    assert [it["id"] for it in body["items"]] == [f"wk_test{i:03d}" for i in range(5, 0, -1)]
+    assert body["has_more"] is False
+
+    # 分页走到底同样无遗漏
+    p1 = client.get("/api/works?limit=2").json()
+    assert p1["total"] == 5 and p1["has_more"] is True
+    seen = [it["id"] for it in p1["items"]]
+    cursor = p1["next_cursor"]
+    while True:
+        page = client.get(f"/api/works?limit=2&cursor={cursor}").json()
+        seen.extend(it["id"] for it in page["items"])
+        if not page["has_more"]:
+            break
+        cursor = page["next_cursor"]
+    assert sorted(seen) == sorted(f"wk_test{i:03d}" for i in range(1, 6))
+    assert len(set(seen)) == 5
+
+
+def test_list_total_matches_paged_count(client, db):
+    """Build-E【1】回归：total 与翻页累计数一致（底部「已加载 N / 共 M」的后端契约）。"""
+    for i in range(1, 11):
+        mk_work(db, i)
+    first = client.get("/api/works?limit=4").json()
+    total = first["total"]
+    seen = list(first["items"])
+    cursor = first["next_cursor"]
+    while True:
+        page = client.get(f"/api/works?limit=4&cursor={cursor}").json()
+        assert page["total"] == total
+        seen.extend(page["items"])
+        if not page["has_more"]:
+            break
+        cursor = page["next_cursor"]
+    assert len(seen) == total == 10
+
+
 # ---------------------------------------------------------------- ratio / tag / featured / q
 
 
@@ -211,6 +273,35 @@ def test_ratio_filter(client, db):
     assert ids("portrait") == {"wk_test001"}
     assert ids("square") == {"wk_test002", "wk_test004"}
     assert ids("landscape") == {"wk_test003", "wk_test005"}
+
+
+def test_ratio_filter_exact_buckets(client, db):
+    """Build-E【4】：真实比例桶（实际 w/h 与目标值相对误差 ≤3% 即命中）。"""
+    mk_work(db, 1, w=1920, h=1080)   # 16:9
+    mk_work(db, 2, w=1080, h=1920)   # 9:16
+    mk_work(db, 3, w=1080, h=1080)   # 1:1
+    mk_work(db, 4, w=1440, h=1080)   # 4:3
+    mk_work(db, 5, w=1080, h=1440)   # 3:4
+    mk_work(db, 6, w=1620, h=1080)   # 3:2
+    mk_work(db, 7, w=1080, h=1620)   # 2:3
+    mk_work(db, 8, w=1080, h=1350)   # 4:5
+    mk_work(db, 9, w=1600, h=1000)   # 16:10：与 16:9 差 10%，不命中任何精确桶
+    mk_work(db, 10, w=1910, h=1080)  # 误差约 0.5%，命中 16:9
+
+    def ids(ratio: str) -> set[str]:
+        r = client.get("/api/works", params={"ratio": ratio})
+        assert r.status_code == 200, r.text
+        return {it["id"] for it in r.json()["items"]}
+
+    assert ids("16:9") == {"wk_test001", "wk_test010"}
+    assert ids("9:16") == {"wk_test002"}
+    assert ids("1:1") == {"wk_test003"}
+    assert ids("4:3") == {"wk_test004"}
+    assert ids("3:4") == {"wk_test005"}
+    assert ids("3:2") == {"wk_test006"}
+    assert ids("2:3") == {"wk_test007"}
+    assert ids("4:5") == {"wk_test008"}
+    assert "wk_test009" not in ids("16:9")
 
 
 def test_tag_multi_value_and_semantics(client, db):
