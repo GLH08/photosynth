@@ -62,7 +62,6 @@ def run_seed(session: Session) -> bool:
             external_file_id=w["external_file_id"],
             album_id=album_ids.get(w["album_slug"]) if w.get("album_slug") else None,
             featured=1 if w.get("featured") else 0,
-            visibility=w.get("visibility", "public"),
             source_meta=_dumps(w.get("source_meta", {"seed": "demo"})),
             created_at=w["published_at"],
             published_at=w["published_at"],

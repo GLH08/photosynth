@@ -81,7 +81,6 @@ def image_payload(**overrides) -> dict:
         "external_file_id": "x9Kd2",
         "parameters": {"size": "1024x1536", "seed": 421087},
         "tag_slugs": ["cyberpunk"],
-        "visibility": "public",
     }
     base.update(overrides)
     return base

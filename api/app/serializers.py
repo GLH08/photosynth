@@ -57,7 +57,6 @@ def work_to_dict(work: Work, *, admin: bool = False, detail: bool = False) -> di
                 "parameters": _json_loads(work.parameters, {}),
                 "reference_images": _json_loads(work.reference_images, []),
                 "storage_backend": work.storage_backend,
-                "visibility": work.visibility,
                 "source_meta": _json_loads(work.source_meta, None),
                 "created_at": work.created_at,
                 "updated_at": work.updated_at,
@@ -73,7 +72,6 @@ def work_to_dict(work: Work, *, admin: bool = False, detail: bool = False) -> di
                 "storage_backend": work.storage_backend,
                 "external_file_id": work.external_file_id,
                 "content_hash": work.content_hash,
-                "visibility": work.visibility,
                 "sort_weight": work.sort_weight,
                 "source_meta": _json_loads(work.source_meta, None),
                 "created_at": work.created_at,
@@ -91,11 +89,10 @@ def load_work(session: Session, work_id: str) -> Work:
     return work  # type: ignore[return-value]
 
 
-def album_to_dict(album: Album, session: Session, *, public_only: bool = False) -> dict:
-    count_q = select(func.count(Work.id)).where(Work.album_id == album.id)
-    if public_only:
-        count_q = count_q.where(Work.visibility == "public")
-    work_count = session.scalar(count_q) or 0
+def album_to_dict(album: Album, session: Session) -> dict:
+    work_count = session.scalar(
+        select(func.count(Work.id)).where(Work.album_id == album.id)
+    ) or 0
     return {
         "id": album.id,
         "slug": album.slug,

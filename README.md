@@ -30,6 +30,10 @@ ADMIN_TOKEN=<你的令牌> SESSION_SECRET=<32位以上随机> DATABASE_URL="sqli
 cd gallery/web && npm ci && npm run dev   # 或 npm run build && BACKEND_ORIGIN=http://127.0.0.1:8000 npm start
 ```
 
+字体（Noto Sans SC woff2 400/500/700）无需手动放置：`npm run build` 前的 `prebuild`
+钩子会自动检查 `web/fonts/`，缺失则从 jsDelivr fontsource CDN 下载并校验 `wOF2`
+文件头（详见 `web/fonts/README.md`；Docker 构建同样生效，需构建期可访问 jsDelivr）。
+
 ## 功能一览
 
 - **首页 /**：Hero + 统计条 + 精选作品横滑 + 专辑入口

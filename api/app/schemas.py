@@ -10,7 +10,6 @@ from urllib.parse import urlparse
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-Visibility = Literal["public", "unlisted", "hidden"]
 WorkType = Literal["image", "video"]
 AlbumKind = Literal["image", "video", "mixed"]
 
@@ -64,9 +63,10 @@ class WorkCreate(BaseModel):
     album_slug: str | None = Field(default=None, max_length=_SLUG_MAX)
     tag_slugs: list[str] = Field(default_factory=list)
     featured: bool = False
-    visibility: Visibility = "public"
     sort_weight: int = 0
     source_meta: dict[str, Any] | None = None
+
+    model_config = {"extra": "ignore"}  # 无发布流：旧客户端带的 visibility 静默忽略
 
     @field_validator("media_url", "thumb_url", "poster_url")
     @classmethod
@@ -105,9 +105,10 @@ class WorkUpdate(BaseModel):
     album_slug: str | None = None  # 显式传 null 解除专辑关联
     tag_slugs: list[str] | None = None  # 全量替换；自动建缺失标签
     featured: bool | None = None
-    visibility: Visibility | None = None
     sort_weight: int | None = None
     source_meta: dict[str, Any] | None = None
+
+    model_config = {"extra": "ignore"}  # 无发布流：旧客户端带的 visibility 静默忽略
 
     @field_validator("media_url", "thumb_url", "poster_url")
     @classmethod

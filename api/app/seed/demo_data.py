@@ -1,9 +1,8 @@
-"""演示种子数据（DESIGN 7.2）：2 专辑 + 6 标签 + 12 图 + 2 视频。
+"""演示种子数据（DESIGN 7.2）：2 专辑 + 6 标签 + 12 图 + 2 视频（无发布流，全量可见）。
 
 图片一律 picsum.photos 固定 ID + 显式宽高（URL 即真实尺寸）；
 thumb_url 用同 ID 小尺寸变体（宽 480），模拟真实缩略图链路。
 比例刻意混排（3:2 / 3:4 / 1:1 / 12:5 / 2:3 / 16:9 / 4:5），是瀑布流保全貌的活体验收用例。
-可见性覆盖：10 幅 public + 1 幅 unlisted（id 1060）+ 1 幅 hidden（id 1035）。
 """
 from __future__ import annotations
 
@@ -97,7 +96,6 @@ DEMO_WORKS: list[dict] = [
         prompt="a narrow mountain trail cutting through alpine meadow, square composition",
         album_slug="city-impressions",
         tag_slugs=["city"],
-        visibility="hidden",  # 验证可见性过滤与管理台状态 tabs（DESIGN 7.2）
         published_at="2026-09-23T07:45:00Z",
     ),
     _img(
@@ -115,7 +113,6 @@ DEMO_WORKS: list[dict] = [
         title="竖构图人像",
         prompt="full body portrait in an old town alley, natural window light, film grain",
         tag_slugs=["portrait"],
-        visibility="unlisted",  # 仅直链可见
         reference_images=[
             {"order": 1, "url": "https://picsum.photos/id/1027/400/600",
              "thumb_url": "https://picsum.photos/id/1027/160/240"},

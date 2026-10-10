@@ -120,7 +120,6 @@ def create_work(payload: WorkCreate, session: Session = Depends(get_session)):
         content_hash=payload.content_hash,
         album_id=album.id if album else None,
         featured=1 if payload.featured else 0,
-        visibility=payload.visibility,
         sort_weight=payload.sort_weight,
         source_meta=(
             json.dumps(payload.source_meta, ensure_ascii=False)
@@ -128,7 +127,7 @@ def create_work(payload: WorkCreate, session: Session = Depends(get_session)):
             else None
         ),
         created_at=now,
-        published_at=now if payload.visibility == "public" else None,
+        published_at=now,  # 无发布流：新建即展示（published_at = created_at）
         updated_at=now,
     )
     session.add(work)
@@ -143,16 +142,13 @@ def create_work(payload: WorkCreate, session: Session = Depends(get_session)):
 @router.get("/works")
 def list_works(
     session: Session = Depends(get_session),
-    visibility: Literal["public", "unlisted", "hidden"] | None = None,
     type: Literal["image", "video"] | None = None,
     q: str | None = None,
     cursor: str | None = None,
     limit: int = Query(default=24, ge=1, le=100),
 ):
-    """管理列表：含 hidden/unlisted，附统计（DESIGN 3.2）。"""
+    """管理列表（无发布流）：全量作品 + 统计（DESIGN 3.2）。"""
     query = select(Work)
-    if visibility:
-        query = query.where(Work.visibility == visibility)
     if type:
         query = query.where(Work.type == type)
     if q:
@@ -186,9 +182,6 @@ def list_works(
 
     stats = {
         "total": _count(),
-        "public": _count(Work.visibility == "public"),
-        "unlisted": _count(Work.visibility == "unlisted"),
-        "hidden": _count(Work.visibility == "hidden"),
         "images": _count(Work.type == "image"),
         "videos": _count(Work.type == "video"),
         "featured": _count(Work.featured == 1),
@@ -230,11 +223,8 @@ def update_work(work_id: str, payload: WorkUpdate, session: Session = Depends(ge
     if "featured" in data:
         data["featured"] = 1 if data["featured"] else 0
 
-    visibility_changed = "visibility" in data and data["visibility"] != work.visibility
     for field, value in data.items():
         setattr(work, field, value)
-    if visibility_changed and work.visibility == "public" and not work.published_at:
-        work.published_at = utcnow_iso()  # 首次上架补 published_at
 
     # 视频完整性（与 DB CHECK 对齐，先行给出可读 422 而非 IntegrityError）
     if work.type == "video" and (work.poster_url is None or work.duration_seconds is None):
@@ -245,26 +235,6 @@ def update_work(work_id: str, payload: WorkUpdate, session: Session = Depends(ge
     work.updated_at = utcnow_iso()
     session.commit()
     return {"work": work_to_dict(_get_work_or_404(session, work_id), admin=True)}
-
-
-@router.post("/works/{work_id}/publish")
-def publish_work(work_id: str, session: Session = Depends(get_session)):
-    work = _get_work_or_404(session, work_id)
-    work.visibility = "public"
-    if not work.published_at:
-        work.published_at = utcnow_iso()
-    work.updated_at = utcnow_iso()
-    session.commit()
-    return {"id": work.id, "visibility": work.visibility, "published_at": work.published_at}
-
-
-@router.post("/works/{work_id}/unpublish")
-def unpublish_work(work_id: str, session: Session = Depends(get_session)):
-    work = _get_work_or_404(session, work_id)
-    work.visibility = "hidden"  # 默认删除语义 = 下架（坑 #12）
-    work.updated_at = utcnow_iso()
-    session.commit()
-    return {"id": work.id, "visibility": work.visibility}
 
 
 @router.delete("/works/{work_id}", status_code=status.HTTP_204_NO_CONTENT)

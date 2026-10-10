@@ -52,7 +52,6 @@ class Work(Base):
         Text, ForeignKey("albums.id", ondelete="SET NULL"), nullable=True
     )
     featured: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    visibility: Mapped[str] = mapped_column(Text, nullable=False, default="public")
     sort_weight: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     source_meta: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON
@@ -71,9 +70,6 @@ class Work(Base):
         CheckConstraint("width > 0", name="ck_works_width_positive"),
         CheckConstraint("height > 0", name="ck_works_height_positive"),
         CheckConstraint("featured IN (0,1)", name="ck_works_featured_bool"),
-        CheckConstraint(
-            "visibility IN ('public','unlisted','hidden')", name="ck_works_visibility"
-        ),
         # 视频完整性约束：视频必须有封面帧与时长；图片必须没有
         CheckConstraint(
             "type <> 'video' OR (poster_url IS NOT NULL AND duration_seconds IS NOT NULL)",
@@ -86,12 +82,11 @@ class Work(Base):
         Index("uq_works_external_file", "storage_backend", "external_file_id", unique=True),
         Index(
             "idx_works_list",
-            "visibility",
             "type",
             text("published_at DESC"),
             text("id DESC"),
         ),
-        Index("idx_works_album", "album_id", "visibility", text("published_at DESC")),
+        Index("idx_works_album", "album_id", text("published_at DESC")),
         Index("idx_works_featured", "featured", text("published_at DESC")),
         Index("idx_works_hash", "content_hash"),
     )

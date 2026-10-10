@@ -1,6 +1,5 @@
-"""公开只读 API（DESIGN 3.1 全量，M3 范围）。
+"""公开只读 API（DESIGN 3.1 全量，M3 范围，无发布流：全量作品均展示）。
 
-- 只出 visibility='public'（详情额外放行 unlisted，hidden 一律 404）。
 - cursor 分页：base64(published_at|id)，翻页期间新增数据不重不漏。
 - 全部 JSON 响应带 Cache-Control: public, max-age=60 + ETag（内容哈希），If-None-Match → 304。
 - /api/media/{id} → 302 重定向到外部直链（存储透明切换，前端零改动）。
@@ -97,7 +96,7 @@ def _filter_conditions(
     featured: bool | None,
     q: str | None,
 ) -> list[ColumnElement[bool]]:
-    conds: list[ColumnElement[bool]] = [Work.visibility == "public"]
+    conds: list[ColumnElement[bool]] = []
     if type:
         conds.append(Work.type == type)
     if album:
@@ -262,8 +261,7 @@ def get_work(
     sort: SortOrder = "latest",
 ):
     work = load_work(session, work_id)
-    # public 与 unlisted 均可见（unlisted 仅直链可达）；hidden/不存在 → 404
-    if work is None or work.visibility == "hidden":
+    if work is None:
         raise ApiError(404, "work_not_found", "作品不存在")
     conds = _filter_conditions(
         type=type, album=album, tag=tag, ratio=ratio, featured=featured, q=q
@@ -283,11 +281,7 @@ def get_work(
 
 def _album_public_dict(album: Album, session: Session) -> dict:
     work_count = (
-        session.scalar(
-            select(func.count(Work.id)).where(
-                Work.album_id == album.id, Work.visibility == "public"
-            )
-        )
+        session.scalar(select(func.count(Work.id)).where(Work.album_id == album.id))
         or 0
     )
     return {
@@ -341,7 +335,7 @@ def list_tags(request: Request, session: Session = Depends(get_session)):
     rows = session.execute(
         select(Tag.slug, Tag.name, func.count(Work.id).label("cnt"))
         .outerjoin(WorkTag, WorkTag.tag_id == Tag.id)
-        .outerjoin(Work, and_(Work.id == WorkTag.work_id, Work.visibility == "public"))
+        .outerjoin(Work, Work.id == WorkTag.work_id)
         .group_by(Tag.id, Tag.slug, Tag.name)
         .order_by(func.count(Work.id).desc(), Tag.name.asc())
     ).all()
@@ -355,17 +349,16 @@ def stats(request: Request, session: Session = Depends(get_session)):
     def _count(*conds) -> int:
         return session.scalar(select(func.count(Work.id)).where(*conds)) or 0
 
-    public = Work.visibility == "public"
     return cached_json(
         request,
         {
             "works": {
-                "images": _count(public, Work.type == "image"),
-                "videos": _count(public, Work.type == "video"),
+                "images": _count(Work.type == "image"),
+                "videos": _count(Work.type == "video"),
             },
             "albums": session.scalar(select(func.count(Album.id))) or 0,
             "tags": session.scalar(select(func.count(Tag.id))) or 0,
-            "featured": _count(public, Work.featured == 1),
+            "featured": _count(Work.featured == 1),
         },
     )
 
@@ -378,9 +371,9 @@ def media_redirect(
     session: Session = Depends(get_session),
     kind: MediaKind = "original",
 ):
-    """302 重定向到外部直链（存储透明切换）；hidden/不存在 → 404。"""
+    """302 重定向到外部直链（存储透明切换）；不存在 → 404。"""
     work = session.scalar(select(Work).where(Work.id == work_id))
-    if work is None or work.visibility == "hidden":
+    if work is None:
         raise ApiError(404, "work_not_found", "作品不存在")
     url = {
         "original": work.media_url,
