@@ -29,9 +29,11 @@ interface Props {
   filters: GalleryFilters;
   /** 弹窗内发起的关闭（Esc/遮罩/×/下滑）；页面层负责 history.back() */
   onClose: () => void;
+  /** 弹窗内删除成功后回调（页面层移除该卡） */
+  onDeleted?: (id: string) => void;
 }
 
-export default function WorkDialog({ initialId, filters, onClose }: Props) {
+export default function WorkDialog({ initialId, filters, onClose, onDeleted }: Props) {
   const [currentId, setCurrentId] = useState(initialId);
   const [data, setData] = useState<WorkDetailResponse | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -224,7 +226,16 @@ export default function WorkDialog({ initialId, filters, onClose }: Props) {
         {/* 右信息栏（独立滚动） */}
         <div className="dialog-info">
           {work ? (
-            <WorkDetailPanel work={work} previewUrl={previewUrl} onPreviewRef={setPreviewUrl} />
+            <WorkDetailPanel
+              work={work}
+              previewUrl={previewUrl}
+              onPreviewRef={setPreviewUrl}
+              manage
+              onDeleted={(id) => {
+                onDeleted?.(id);
+                onClose();
+              }}
+            />
           ) : loadError ? (
             <div className="dialog-skeleton">
               <p style={{ color: "var(--c-danger)", fontSize: 14 }}>作品加载失败：{loadError}</p>

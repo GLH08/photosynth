@@ -13,12 +13,17 @@ import { copyText } from "@/lib/copy";
 import { formatDuration, formatResolution } from "@/lib/api";
 import type { WorkDetail } from "@/lib/types";
 import { useToast } from "./Toast";
+import WorkManageButtons from "./WorkManageButtons";
 
 interface Props {
   work: WorkDetail;
   /** 参考图临时预览（回调给容器替换左媒体区） */
   previewUrl?: string | null;
   onPreviewRef?: (url: string | null) => void;
+  /** 前台管理：展示编辑/删除按钮（Build-E【2】；默认隐藏，保持分享页干净） */
+  manage?: boolean;
+  /** 删除成功后回调（容器负责关弹窗/回退） */
+  onDeleted?: (id: string) => void;
 }
 
 function KvTable({ rows }: { rows: [string, ReactNode][] }) {
@@ -38,7 +43,7 @@ function KvTable({ rows }: { rows: [string, ReactNode][] }) {
   );
 }
 
-export default function WorkDetailPanel({ work, previewUrl, onPreviewRef }: Props) {
+export default function WorkDetailPanel({ work, previewUrl, onPreviewRef, manage = false, onDeleted }: Props) {
   const toast = useToast();
   const [manualCopy, setManualCopy] = useState(false);
   const [failedRefs, setFailedRefs] = useState<Set<number>>(new Set());
@@ -204,6 +209,15 @@ export default function WorkDetailPanel({ work, previewUrl, onPreviewRef }: Prop
             新窗口打开 ↗
           </a>
         </div>
+        {manage && (
+          <div className="detail-manage" style={{ marginTop: 8 }}>
+            <WorkManageButtons
+              id={work.id}
+              title={work.title}
+              onDeleted={onDeleted ? () => onDeleted(work.id) : undefined}
+            />
+          </div>
+        )}
       </section>
 
       {/* 7. 专辑链接卡 + 标签 chips */}

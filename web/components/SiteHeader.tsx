@@ -6,7 +6,7 @@
  * 右搜索图标 → /gallery?q=；滚动后加 sh-3；<768px 收汉堡抽屉。
  */
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
 const NAV_ITEMS = [
@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { href: "/videos", label: "视频" },
   { href: "/albums", label: "专辑" },
   { href: "/tags", label: "标签" },
+  { href: "/new", label: "＋新建" },
 ] as const;
 
 /** 钴蓝「光圈」SVG 字标（Logo，5.4） */
@@ -44,7 +45,6 @@ function ApertureMark() {
 
 export default function SiteHeader() {
   const pathname = usePathname();
-  const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -71,16 +71,21 @@ export default function SiteHeader() {
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
+  // Build-E【4】：搜索框按页面类型限定——/videos 只搜视频，其余（含 /gallery）只搜图片
+  const searchBase = pathname?.startsWith("/videos") ? "/videos" : "/gallery";
+
   const onSearch = (e: FormEvent) => {
     e.preventDefault();
     const term = q.trim();
-    router.push(term ? `/gallery?q=${encodeURIComponent(term)}` : "/gallery");
+    // 全页导航（window.location.assign 而非 router.push）：同路由 query 变化时
+    // App Router 复用 RSC payload 不重跑 page，搜索回车无反应；整页跳转保证 SSR 按 q 取数。
+    window.location.assign(term ? `${searchBase}?q=${encodeURIComponent(term)}` : searchBase);
     setSearchOpen(false);
     setDrawerOpen(false);
   };
 
   const searchForm = (
-    <form className={`search-form${searchOpen ? " open" : ""}`} action="/gallery" method="get" onSubmit={onSearch} role="search">
+    <form className={`search-form${searchOpen ? " open" : ""}`} action={searchBase} method="get" onSubmit={onSearch} role="search">
       <input
         ref={searchRef}
         className="search-input"
@@ -94,7 +99,7 @@ export default function SiteHeader() {
     </form>
   );
 
-  // 管理台独立布局（DESIGN 4.2）：/admin/* 下隐藏公开 Header
+  // /admin/login 为登录页：隐藏公开 Header（仅此一条 admin 路由保留）
   if (pathname?.startsWith("/admin")) return null;
 
   return (
