@@ -1,0 +1,38 @@
+import type { Metadata } from "next";
+
+import HideOnAdmin from "@/components/HideOnAdmin";
+import SiteFooter from "@/components/SiteFooter";
+import SiteHeader from "@/components/SiteHeader";
+import { ToastProvider } from "@/components/Toast";
+import { notoSansSC } from "@/lib/fonts";
+import "./globals.css";
+
+export const metadata: Metadata = {
+  title: {
+    default: "光合画廊 Photosynth",
+    template: "%s · 光合画廊 Photosynth",
+  },
+  description: "AI 生成作品陈列馆 —— 图片与视频展示平台。媒体是唯一主角，界面安静退后。",
+};
+
+/**
+ * 全局布局（DESIGN 4.2）：
+ * Header（sticky 毛玻璃白）→ 内容区（max-width 1440px，gutter 24/16px）→ Footer（stats 摘要 + 管理入口）。
+ */
+export default function RootLayout({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
+  return (
+    <html lang="zh-CN" className={notoSansSC.variable}>
+      <body>
+        <ToastProvider>
+          <SiteHeader />
+          <div className="page-shell">{children}</div>
+          <HideOnAdmin>
+            <SiteFooter />
+          </HideOnAdmin>
+        </ToastProvider>
+      </body>
+    </html>
+  );
+}
