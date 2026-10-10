@@ -27,6 +27,9 @@ class ReferenceImageIn(BaseModel):
     order: int = Field(ge=1)
     url: str
     thumb_url: str | None = None
+    # Build-E【3】：视频首帧/尾帧角色标记（first/last），与 order 共存于 reference_images
+    # JSON 内，零 DB 迁移、旧数据（无 role）前后兼容；独立字段方案需加列+迁移+序列化，不干净。
+    role: Literal["first", "last"] | None = None
 
     @field_validator("url", "thumb_url")
     @classmethod

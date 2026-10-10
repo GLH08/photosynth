@@ -1,6 +1,8 @@
 """公开只读 API（DESIGN 3.1 全量，M3 范围，无发布流：全量作品均展示）。
 
-- cursor 分页：base64(published_at|id)，翻页期间新增数据不重不漏。
+- cursor 分页：base64(created_at|id)，翻页期间新增数据不重不漏。
+  排序键必须用非空 created_at（published_at 可空：NULL 行在比较中恒为
+  NULL，会被 cursor 条件静默过滤导致提前终止，见 Build-E【1】）。
 - 全部 JSON 响应带 Cache-Control: public, max-age=60 + ETag（内容哈希），If-None-Match → 304。
 - /api/media/{id} → 302 重定向到外部直链（存储透明切换，前端零改动）。
 """
@@ -12,7 +14,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse, RedirectResponse, Response
-from sqlalchemy import ColumnElement, and_, func, or_, select
+from sqlalchemy import ColumnElement, Float, and_, cast, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from ..errors import ApiError
@@ -24,7 +26,11 @@ router = APIRouter(prefix="/api", tags=["public"])
 CACHE_CONTROL = "public, max-age=60"
 
 SortOrder = Literal["latest", "oldest"]
-RatioBucket = Literal["portrait", "square", "landscape"]
+# Build-E【4】：真实比例值；旧 portrait/square/landscape 保留（超集兼容，老分享链接仍可用）
+RatioBucket = Literal[
+    "portrait", "square", "landscape",
+    "16:9", "9:16", "1:1", "4:3", "3:4", "3:2", "2:3", "4:5",
+]
 MediaType = Literal["image", "video"]
 MediaKind = Literal["original", "thumb", "poster"]
 
@@ -55,7 +61,7 @@ def cached_json(request: Request, payload, *, status_code: int = 200) -> Respons
 
 def encode_cursor(work: Work) -> str:
     return (
-        base64.urlsafe_b64encode(f"{work.published_at}|{work.id}".encode())
+        base64.urlsafe_b64encode(f"{work.created_at}|{work.id}".encode())
         .decode()
         .rstrip("=")
     )
@@ -75,16 +81,34 @@ def decode_cursor(cursor: str) -> tuple[str, str]:
 
 # ---------------------------------------------------------------- 筛选
 
+# Build-E【4】：真实比例桶的目标宽高比（旧 portrait/square/landscape 走上面的分支）
+_RATIO_TARGETS: dict[str, float] = {
+    "16:9": 16 / 9,
+    "9:16": 9 / 16,
+    "1:1": 1.0,
+    "4:3": 4 / 3,
+    "3:4": 3 / 4,
+    "3:2": 3 / 2,
+    "2:3": 2 / 3,
+    "4:5": 4 / 5,
+}
+
+
 def _ratio_condition(ratio: RatioBucket) -> ColumnElement[bool]:
-    # DESIGN 3.1：h > w*1.05 竖 / 差值内方 / w > h*1.05 横
+    # DESIGN 3.1：h > w*1.05 竖 / 差值内方 / w > h*1.05 横（旧桶保留兼容）
     if ratio == "portrait":
         return Work.height > Work.width * 1.05
     if ratio == "landscape":
         return Work.width > Work.height * 1.05
-    return and_(
-        Work.height <= Work.width * 1.05,
-        Work.width <= Work.height * 1.05,
-    )
+    if ratio == "square":
+        return and_(
+            Work.height <= Work.width * 1.05,
+            Work.width <= Work.height * 1.05,
+        )
+    # Build-E【4】：真实比例桶——宽高比与目标值相对误差 ≤3% 即命中
+    target = _RATIO_TARGETS[ratio]
+    actual = cast(Work.width, Float) / cast(Work.height, Float)
+    return func.abs(actual - target) <= target * 0.03
 
 
 def _filter_conditions(
@@ -119,21 +143,21 @@ def _order_and_cursor(
     descending = sort != "oldest"
     cursor_cond = None
     if cursor:
-        c_pub, c_id = decode_cursor(cursor)
+        c_created, c_id = decode_cursor(cursor)
         if descending:
             cursor_cond = or_(
-                Work.published_at < c_pub,
-                and_(Work.published_at == c_pub, Work.id < c_id),
+                Work.created_at < c_created,
+                and_(Work.created_at == c_created, Work.id < c_id),
             )
         else:
             cursor_cond = or_(
-                Work.published_at > c_pub,
-                and_(Work.published_at == c_pub, Work.id > c_id),
+                Work.created_at > c_created,
+                and_(Work.created_at == c_created, Work.id > c_id),
             )
     if descending:
-        order = [Work.published_at.desc(), Work.id.desc()]
+        order = [Work.created_at.desc(), Work.id.desc()]
     else:
-        order = [Work.published_at.asc(), Work.id.asc()]
+        order = [Work.created_at.asc(), Work.id.asc()]
     return order, cursor_cond
 
 
@@ -221,17 +245,17 @@ def _neighbors(
 
     prev = 展示序列中位于其前者（latest 排序时即更新时间较近者），next 反之。
     """
-    if work.published_at is None:
+    if work.created_at is None:
         return None, None
-    pub, wid = work.published_at, work.id
+    created, wid = work.created_at, work.id
     newer = or_(
-        Work.published_at > pub, and_(Work.published_at == pub, Work.id > wid)
+        Work.created_at > created, and_(Work.created_at == created, Work.id > wid)
     )
     older = or_(
-        Work.published_at < pub, and_(Work.published_at == pub, Work.id < wid)
+        Work.created_at < created, and_(Work.created_at == created, Work.id < wid)
     )
-    newest_first = (Work.published_at.desc(), Work.id.desc())
-    oldest_first = (Work.published_at.asc(), Work.id.asc())
+    newest_first = (Work.created_at.desc(), Work.id.desc())
+    oldest_first = (Work.created_at.asc(), Work.id.asc())
     if sort != "oldest":
         prev_cond, prev_order = newer, oldest_first
         next_cond, next_order = older, newest_first
