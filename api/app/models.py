@@ -80,14 +80,15 @@ class Work(Base):
             name="ck_works_image_no_poster",
         ),
         Index("uq_works_external_file", "storage_backend", "external_file_id", unique=True),
+        # Build-E【1】：列表排序键为 created_at（非空确定性），索引与查询对齐
         Index(
             "idx_works_list",
             "type",
-            text("published_at DESC"),
+            text("created_at DESC"),
             text("id DESC"),
         ),
-        Index("idx_works_album", "album_id", text("published_at DESC")),
-        Index("idx_works_featured", "featured", text("published_at DESC")),
+        Index("idx_works_album", "album_id", text("created_at DESC")),
+        Index("idx_works_featured", "featured", text("created_at DESC")),
         Index("idx_works_hash", "content_hash"),
     )
 
