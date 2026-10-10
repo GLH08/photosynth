@@ -212,7 +212,7 @@ export default function WorkDialog({ initialId, filters, onClose }: Props) {
           )}
         </div>
 
-        {/* 顶部右浮：关闭 ×（44px 命中区；复制链接在信息栏操作区） */}
+        {/* 顶部右浮：关闭 ×（44px 命中区） */}
         <div className="dialog-top-actions">
           <button type="button" className="icon-btn" aria-label="关闭（Esc）" onClick={onClose}>
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">

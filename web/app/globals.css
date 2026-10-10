@@ -2197,8 +2197,11 @@ button {
     z-index: 30;
   }
   .admin-nav { flex-direction: row; flex-wrap: wrap; }
+  .admin-nav-link { white-space: nowrap; width: auto; }
   .admin-nav-link.active { box-shadow: none; }
+  .admin-side-head { display: none; } /* 窄屏顶栏不占 logo 位 */
   .admin-side-foot { margin-top: 0; border-top: none; padding-top: 0; flex-direction: row; }
+  .admin-side-foot .admin-nav-link { white-space: nowrap; }
 }
 
 .admin-page {
@@ -2298,6 +2301,7 @@ button {
 
 .admin-table {
   width: 100%;
+  min-width: 760px; /* 窄屏横滑而非压扁列 */
   border-collapse: collapse;
   font-size: var(--fs-14);
 }

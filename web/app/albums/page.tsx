@@ -26,7 +26,7 @@ export default async function AlbumsPage() {
         <p className="eyebrow">Albums</p>
         <h1 className="page-title">专辑</h1>
         <p className="page-desc">
-          按主题策展的作品合集。封面为专辑自定义图或首张作品缩略图，计数只统计已上架作品。
+          按主题策展的作品合集。封面为专辑自定义图或首张作品缩略图，计数为专辑内全部作品。
         </p>
       </header>
 

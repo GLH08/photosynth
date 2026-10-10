@@ -49,7 +49,6 @@ def mk_work(
     type: str = "image",
     w: int = 1000,
     h: int = 1000,
-    visibility: str = "public",
     featured: bool = False,
     published_at: str | None = None,
     album: Album | None = None,
@@ -83,7 +82,6 @@ def mk_work(
         external_file_id=f"ext-{type}-{idx}",
         album_id=album.id if album else None,
         featured=1 if featured else 0,
-        visibility=visibility,
         created_at=ts,
         published_at=ts,
         updated_at=ts,
@@ -99,15 +97,16 @@ def mk_work(
 # ---------------------------------------------------------------- 可见性与列表字段
 
 
-def test_list_only_public_and_lightbox_fields(client, db):
+def test_list_all_works_and_lightbox_fields(client, db):
+    """无发布流：全部作品均展示。"""
     mk_work(db, 1)
-    mk_work(db, 2, visibility="unlisted")
-    mk_work(db, 3, visibility="hidden")
+    mk_work(db, 2)
+    mk_work(db, 3)
     r = client.get("/api/works")
     assert r.status_code == 200
     body = r.json()
     ids = [it["id"] for it in body["items"]]
-    assert ids == ["wk_test001"]
+    assert ids == ["wk_test003", "wk_test002", "wk_test001"]  # latest 排序
     assert body["has_more"] is False and body["next_cursor"] is None
     item = body["items"][0]
     # 列表项即含 lightbox 所需字段（DESIGN 3.1）
@@ -118,25 +117,21 @@ def test_list_only_public_and_lightbox_fields(client, db):
     assert "storage_backend" not in item and "external_file_id" not in item
 
 
-def test_detail_visibility_rules(client, db):
+def test_detail_fields_and_404(client, db):
+    """无发布流：详情含内部字段（新作品默认可见），不存在 → 404。"""
     mk_work(db, 1, negative_prompt="blurry", parameters={"seed": 42},
             reference_images=[{"order": 1, "url": "https://cdn.example.com/r/1.png"}])
-    mk_work(db, 2, visibility="unlisted")
-    mk_work(db, 3, visibility="hidden")
 
     r = client.get("/api/works/wk_test001")
     assert r.status_code == 200
     work = r.json()["work"]
     for field in ("negative_prompt", "model_version", "parameters", "reference_images",
-                  "source_meta", "storage_backend", "visibility", "created_at", "updated_at"):
+                  "source_meta", "storage_backend", "created_at", "updated_at"):
         assert field in work
+    assert "visibility" not in work  # 不再对外暴露
     assert work["parameters"] == {"seed": 42}
     assert work["negative_prompt"] == "blurry"
 
-    assert client.get("/api/works/wk_test002").status_code == 200  # unlisted 直链可见
-    r3 = client.get("/api/works/wk_test003")
-    assert r3.status_code == 404
-    assert r3.json()["error"] == {"code": "work_not_found", "message": "作品不存在"}
     r4 = client.get("/api/works/wk_nope")
     assert r4.status_code == 404 and r4.json()["error"]["code"] == "work_not_found"
 
@@ -278,7 +273,6 @@ def test_detail_prev_next_same_filter_sequence(client, db):
 def test_media_redirect_302(client, db):
     mk_work(db, 1)
     mk_work(db, 2, type="video")
-    mk_work(db, 3, visibility="hidden")
 
     r = client.get("/api/media/wk_test001", follow_redirects=False)
     assert r.status_code == 302
@@ -293,11 +287,8 @@ def test_media_redirect_302(client, db):
     assert r_poster.status_code == 302
     assert r_poster.headers["location"] == "https://cdn.example.com/v/2.frame.jpg"
 
-    # 图片没有 poster → 404 media_not_found；hidden → 404；不存在 → 404
+    # 图片没有 poster → 404 media_not_found；不存在 → 404
     assert client.get("/api/media/wk_test001?kind=poster").status_code == 404
-    r_hidden = client.get("/api/media/wk_test003", follow_redirects=False)
-    assert r_hidden.status_code == 404
-    assert r_hidden.json()["error"]["code"] == "work_not_found"
     assert client.get("/api/media/wk_nope", follow_redirects=False).status_code == 404
 
 
@@ -336,14 +327,14 @@ def test_albums_endpoints(client, db):
     nature = _album(db, "nature", sort_weight=10)
     mk_work(db, 1, album=city)
     mk_work(db, 2, album=city)
-    mk_work(db, 3, album=city, visibility="hidden")  # work_count 只统计 public
+    mk_work(db, 3, album=city)
     mk_work(db, 4, album=nature, type="video")
 
     r = client.get("/api/albums")
     assert r.status_code == 200
     items = r.json()["items"]
     assert [a["slug"] for a in items] == ["city", "nature"]  # sort_weight 降序
-    assert items[0]["work_count"] == 2
+    assert items[0]["work_count"] == 3
     assert items[1]["work_count"] == 1
     assert set(items[0]) == {"slug", "name", "description", "cover_url", "kind",
                              "work_count", "sort_weight"}
@@ -351,14 +342,14 @@ def test_albums_endpoints(client, db):
     r2 = client.get("/api/albums/city")
     body = r2.json()
     assert body["album"]["slug"] == "city"
-    assert {it["id"] for it in body["items"]} == {"wk_test001", "wk_test002"}
+    assert {it["id"] for it in body["items"]} == {"wk_test001", "wk_test002", "wk_test003"}
     assert body["has_more"] is False
 
-    # 专辑内作品列表同样支持 cursor 分页
+    # 专辑内作品列表同样支持 cursor 分页（latest：003→002→001）
     p1 = client.get("/api/albums/city?limit=1").json()
     assert p1["has_more"] is True
     p2 = client.get(f"/api/albums/city?limit=1&cursor={p1['next_cursor']}").json()
-    assert [it["id"] for it in p2["items"]] == ["wk_test001"]
+    assert [it["id"] for it in p2["items"]] == ["wk_test002"]
 
     r3 = client.get("/api/albums/nope")
     assert r3.status_code == 404
@@ -369,7 +360,7 @@ def test_tags_and_stats(client, db):
     city = _album(db, "city")
     mk_work(db, 1, tags=("a", "b"), album=city, featured=True)
     mk_work(db, 2, tags=("a",), album=city)
-    mk_work(db, 3, tags=("b",), visibility="hidden", featured=True)  # 不计入公开统计
+    mk_work(db, 3, tags=("b",), featured=True)
     mk_work(db, 4, type="video")
 
     r = client.get("/api/tags")
@@ -377,10 +368,10 @@ def test_tags_and_stats(client, db):
     tags = r.json()
     assert isinstance(tags, list)  # 裸数组（DESIGN 3.1）
     assert tags[0] == {"slug": "a", "name": "a", "count": 2}
-    assert [t["slug"] for t in tags] == ["a", "b"]  # count 降序，hidden 关联不计
+    assert [t["slug"] for t in tags] == ["a", "b"]  # count 降序
 
     s = client.get("/api/stats").json()
-    assert s == {"works": {"images": 2, "videos": 1}, "albums": 1, "tags": 2, "featured": 1}
+    assert s == {"works": {"images": 3, "videos": 1}, "albums": 1, "tags": 2, "featured": 2}
 
 
 # ---------------------------------------------------------------- OpenAPI

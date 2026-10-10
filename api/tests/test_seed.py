@@ -25,8 +25,6 @@ def test_seed_writes_demo_dataset(client):
         assert all(w.storage_backend == "demo" for w in works)
         assert sum(1 for w in works if w.type == "video") == 2
         assert sum(1 for w in works if w.featured) == 3  # 1050/1069/1080
-        assert sum(1 for w in works if w.visibility == "unlisted") == 1
-        assert sum(1 for w in works if w.visibility == "hidden") == 1
         # 图生图示例：1025 带 2 张参考图
         husky = next(w for w in works if w.external_file_id == "demo-picsum-1025")
         import json

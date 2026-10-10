@@ -4,7 +4,7 @@
  * WorkDetailPanel（DESIGN 5.6 右信息栏 / 4.3-⑧ 详情页信息架构，弹窗与独立页复用）：
  * 标题 → 类型/精选徽章 → 提示词块（复制三级降级 + toast）→ 负向提示词（可折叠，null 隐藏）
  * → 参考图缩略网格（#N 角标、点击左区预览、失败降级链接）→ 模型/参数 kv 表（空字段整行隐藏）
- * → 操作区（下载/新窗口打开/复制链接）→ 专辑链接卡与标签 chips。
+ * → 操作区（下载/新窗口打开）→ 专辑链接卡与标签 chips。
  */
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
@@ -55,13 +55,6 @@ export default function WorkDetailPanel({ work, previewUrl, onPreviewRef }: Prop
     }
   };
 
-  const copyLink = async () => {
-    const url = `${window.location.origin}/works/${work.id}`;
-    const level = await copyText(url);
-    if (level) toast.push("已复制链接", "success");
-    else toast.push("复制失败，请从地址栏复制链接", "error");
-  };
-
   // ---- kv 表：固定字段 + parameters JSON 平铺；空字段整行隐藏
   const kvRows: [string, ReactNode][] = [];
   const push = (k: string, v: string | number | null | undefined) => {
@@ -99,7 +92,6 @@ export default function WorkDetailPanel({ work, previewUrl, onPreviewRef }: Prop
         </div>
         <div className="detail-badges">
           <span className={`badge badge-${work.type}`}>{work.type === "video" ? "视频" : "图片"}</span>
-          {work.visibility === "unlisted" && <span className="badge badge-unlisted">未列出 · 仅直链可见</span>}
           <span className="badge" style={{ background: "var(--c-bg-sunken)", color: "var(--c-ink-500)" }}>
             <span className="mono">{formatResolution(work.width, work.height)}</span>
           </span>
@@ -211,9 +203,6 @@ export default function WorkDetailPanel({ work, previewUrl, onPreviewRef }: Prop
           <a className="btn btn-secondary" href={work.media_url} target="_blank" rel="noreferrer noopener">
             新窗口打开 ↗
           </a>
-          <button type="button" className="btn btn-ghost" onClick={copyLink}>
-            复制链接
-          </button>
         </div>
       </section>
 

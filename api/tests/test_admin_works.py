@@ -20,8 +20,8 @@ def test_create_image_work_201(admin):
     assert work["title"] == "霓虹雨巷"
     assert work["width"] == 1024 and work["height"] == 1536
     assert work["storage_backend"] == "chevereto"
-    assert work["visibility"] == "public"
-    assert work["published_at"]  # public 登记即上架
+    assert "visibility" not in work  # 不再对外暴露
+    assert work["published_at"]  # 无发布流：新建即展示
     assert work["poster_url"] is None and work["duration_seconds"] is None
     assert [t["slug"] for t in work["tags"]] == ["cyberpunk"]  # 自动建缺失标签
     assert work["parameters"] == {"size": "1024x1536", "seed": 421087}
@@ -80,19 +80,18 @@ def test_create_video_without_poster_422(admin):
 
 # ---------------------------------------------------------------- 列表与过滤
 
-def test_admin_list_visibility_filter_and_stats(admin):
-    _create(admin, image_payload(external_file_id="w-pub", visibility="public"), headers=None)
-    _create(admin, image_payload(external_file_id="w-hid", visibility="hidden",
-                                 title="下架作品"), headers=None)
-    _create(admin, video_payload(external_file_id="w-vid", visibility="unlisted"), headers=None)
+def test_admin_list_and_stats(admin):
+    """无发布流：列表全量 + 类型/q 过滤 + 统计（无可见性维度）。"""
+    _create(admin, image_payload(external_file_id="w-1"), headers=None)
+    _create(admin, image_payload(external_file_id="w-2", title="山径作品"), headers=None)
+    _create(admin, video_payload(external_file_id="w-vid"), headers=None)
 
     all_items = admin.get("/api/admin/works", headers=BEARER).json()
     assert all_items["stats"] == {
-        "total": 3, "public": 1, "unlisted": 1, "hidden": 1,
-        "images": 2, "videos": 1, "featured": 0,
+        "total": 3, "images": 2, "videos": 1, "featured": 0,
     }
-    hidden = admin.get("/api/admin/works", params={"visibility": "hidden"}, headers=BEARER).json()
-    assert [w["title"] for w in hidden["items"]] == ["下架作品"]
+    assert {w["title"] for w in all_items["items"]} == {"霓虹雨巷", "山径作品", "海浪拍打礁石"}
+    assert all("visibility" not in w for w in all_items["items"])
     vids = admin.get("/api/admin/works", params={"type": "video"}, headers=BEARER).json()
     assert len(vids["items"]) == 1 and vids["items"][0]["type"] == "video"
     q = admin.get("/api/admin/works", params={"q": "霓虹"}, headers=BEARER).json()
@@ -129,15 +128,12 @@ def test_patch_work(admin):
                        headers=BEARER).status_code == 404
 
 
-def test_publish_unpublish(admin):
-    wid = _create(admin, image_payload(external_file_id="pub-1", visibility="hidden"),
+def test_publish_endpoints_removed(admin):
+    """无发布流：publish/unpublish 端点已删除 → 404/405。"""
+    wid = _create(admin, image_payload(external_file_id="pub-1"),
                   headers=None).json()["work"]["id"]
-    r = admin.post(f"/api/admin/works/{wid}/unpublish", headers=BEARER)
-    assert r.status_code == 200 and r.json()["visibility"] == "hidden"
-    r2 = admin.post(f"/api/admin/works/{wid}/publish", headers=BEARER)
-    assert r2.status_code == 200
-    assert r2.json()["visibility"] == "public"
-    assert r2.json()["published_at"]  # 首次上架补 published_at
+    assert admin.post(f"/api/admin/works/{wid}/publish", headers=BEARER).status_code in (404, 405)
+    assert admin.post(f"/api/admin/works/{wid}/unpublish", headers=BEARER).status_code in (404, 405)
 
 
 def test_delete_work(admin):

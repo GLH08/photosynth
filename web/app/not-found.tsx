@@ -14,7 +14,7 @@ export default function NotFound() {
         <p className="eyebrow">Not Found</p>
         <h1 className="notfound-title">这一页没有被陈列</h1>
         <p className="notfound-desc">
-          链接可能已失效，或作品已被下架（下架作品不出现在任何公开列表）。
+          链接可能已失效，或作品已被删除。
           去画廊里看看别的作品吧。
         </p>
         <div className="notfound-actions">
