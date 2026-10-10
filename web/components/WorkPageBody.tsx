@@ -3,7 +3,9 @@
 /**
  * /works/[id] 直访形态（DESIGN 4.3-⑧ / 5.6「独立详情页复用」）：
  * 居中双栏卡片（左媒体右信息，同 lightbox 信息架构），共享 WorkMedia / WorkDetailPanel。
+ * 前台管理（Build-E【2】）：编辑/删除按钮常驻；删除成功回 /gallery。
  */
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import WorkDetailPanel from "./WorkDetailPanel";
@@ -11,6 +13,7 @@ import WorkMedia from "./WorkMedia";
 import type { WorkDetail } from "@/lib/types";
 
 export default function WorkPageBody({ work }: { work: WorkDetail }) {
+  const router = useRouter();
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   return (
@@ -19,7 +22,13 @@ export default function WorkPageBody({ work }: { work: WorkDetail }) {
         <WorkMedia work={work} previewUrl={previewUrl} onExitPreview={() => setPreviewUrl(null)} />
       </div>
       <div className="work-standalone-info">
-        <WorkDetailPanel work={work} previewUrl={previewUrl} onPreviewRef={setPreviewUrl} />
+        <WorkDetailPanel
+          work={work}
+          previewUrl={previewUrl}
+          onPreviewRef={setPreviewUrl}
+          manage
+          onDeleted={() => router.replace("/gallery")}
+        />
       </div>
     </div>
   );

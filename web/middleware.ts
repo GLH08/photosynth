@@ -4,10 +4,10 @@ import { NextRequest, NextResponse } from "next/server";
  * 全站登录保护（整站仅本人可访问）：
  * - 放行：/admin/login、/api/admin/login、/api/admin/logout、/api/health（Docker 健康检查）；
  * - 其余（页面与 /api/* 代理一律）转发浏览器 Cookie 直连后端
- *   GET /api/admin/works?limit=1 校验（与 lib/admin.ts requireAdminGate 同思路）；
+ *   GET /api/admin/works?limit=1 校验；
  * - 校验 401/403：页面 → 307 跳 /admin/login?next=<原路径>；/api/* → 401 JSON
  *   （与后端未登录语义同构，客户端现有 401 处理继续工作）；
- * - 后端不可达：放行，由页面错误态 / 代理 502 兜底（与 requireAdminGate 一致）。
+ * - 后端不可达：放行，由页面错误态 / 代理 502 兜底。
  * ADMIN_TOKEN 永不进 web 容器；Cookie 校验走后端。
  */
 function backendOrigin(): string {

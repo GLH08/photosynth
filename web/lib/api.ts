@@ -176,24 +176,6 @@ async function unwrap<T>(r: Response): Promise<T> {
   return (await r.json()) as T;
 }
 
-// ---------------------------------------------------------------- 管理端（client-safe：SSR 门禁见 lib/admin.ts）
-
-export interface AdminWorksQuery {
-  type?: WorkType;
-  q?: string;
-  cursor?: string;
-  limit?: number;
-}
-
-export function buildAdminWorksQuery(q: AdminWorksQuery): string {
-  const sp = new URLSearchParams();
-  if (q.type) sp.set("type", q.type);
-  if (q.q) sp.set("q", q.q);
-  if (q.cursor) sp.set("cursor", q.cursor);
-  sp.set("limit", String(q.limit ?? 20));
-  return sp.toString();
-}
-
 // ---------------------------------------------------------------- 解析与格式化
 
 export function parseFiltersFromSearchParams(
@@ -208,11 +190,15 @@ export function parseFiltersFromSearchParams(
       : [];
   const ratioRaw = first(sp.ratio);
   const sortRaw = first(sp.sort);
+  // Build-E【4】：11 值超集（8 真实比例 + 3 旧桶兼容，老分享链接仍可用）
+  const RATIO_VALUES: RatioBucket[] = [
+    "portrait", "square", "landscape",
+    "16:9", "9:16", "1:1", "4:3", "3:4", "3:2", "2:3", "4:5",
+  ];
   return {
-    ratio:
-      ratioRaw === "portrait" || ratioRaw === "square" || ratioRaw === "landscape"
-        ? (ratioRaw as RatioBucket)
-        : undefined,
+    ratio: RATIO_VALUES.includes(ratioRaw as RatioBucket)
+      ? (ratioRaw as RatioBucket)
+      : undefined,
     album: first(sp.album) || undefined,
     tags,
     featured: first(sp.featured) === "1" || first(sp.featured) === "true" || undefined,
