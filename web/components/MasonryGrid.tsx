@@ -17,9 +17,10 @@ interface Props {
   entries: MasonryEntry[];
   textMode?: CardTextMode;
   onOpen?: (work: WorkListItem) => void;
+  onDeleted?: (work: WorkListItem) => void;
 }
 
-export default function MasonryGrid({ entries, textMode = "full", onOpen }: Props) {
+export default function MasonryGrid({ entries, textMode = "full", onOpen, onDeleted }: Props) {
   return (
     <div className="masonry">
       {entries.map((entry) => (
@@ -29,6 +30,7 @@ export default function MasonryGrid({ entries, textMode = "full", onOpen }: Prop
             textMode={textMode}
             enterDelayMs={entry.enterDelayMs}
             onOpen={onOpen}
+            onDeleted={onDeleted}
           />
         </div>
       ))}

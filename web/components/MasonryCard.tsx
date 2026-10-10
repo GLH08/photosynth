@@ -12,6 +12,7 @@ import { useState, type KeyboardEvent, type MouseEvent } from "react";
 
 import { formatDuration, formatResolution } from "@/lib/api";
 import type { WorkListItem } from "@/lib/types";
+import WorkManageButtons from "./WorkManageButtons";
 
 export type CardTextMode = "full" | "title" | "none";
 
@@ -21,9 +22,11 @@ interface Props {
   /** 入场错峰动画延迟（5.10：逐张 30ms，上限 8 张，由网格层计算） */
   enterDelayMs?: number;
   onOpen?: (work: WorkListItem) => void;
+  /** 删除成功后回调（列表移除该卡；不传则默认回 /gallery） */
+  onDeleted?: (work: WorkListItem) => void;
 }
 
-export default function MasonryCard({ work, textMode = "full", enterDelayMs, onOpen }: Props) {
+export default function MasonryCard({ work, textMode = "full", enterDelayMs, onOpen, onDeleted }: Props) {
   const isVideo = work.type === "video";
   // 图片：thumb → media_url 一次回退 → 断链兜底；
   // 视频（5.7）：卡片显示 poster_url 海报（网格内零视频请求），失败退 thumb 再退 media。
@@ -124,6 +127,17 @@ export default function MasonryCard({ work, textMode = "full", enterDelayMs, onO
             </span>
           </>
         )}
+
+        {/* 前台管理：hover 出编辑/删除（Build-E【2】；触控端 :active 兜底，见 CSS） */}
+        <span className="card-manage" onClick={stopThen(() => undefined)}>
+          <WorkManageButtons
+            id={work.id}
+            title={work.title}
+            compact
+            stopPropagation
+            onDeleted={onDeleted ? () => onDeleted(work) : undefined}
+          />
+        </span>
       </div>
 
       {textMode !== "none" && (

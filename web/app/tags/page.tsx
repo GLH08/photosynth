@@ -6,6 +6,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { TagCreateButton, TagManageSlot } from "@/components/CollectionManage";
 import EmptyState from "@/components/EmptyState";
 import { getTags } from "@/lib/api";
 import type { TagInfo } from "@/lib/types";
@@ -47,21 +48,25 @@ export default async function TagsPage() {
         <p className="page-desc">
           按热度陈列的全部标签：字号越大、颜色越深，作品越多。点击进入标签聚合页。
         </p>
+        <div className="page-head-actions">
+          <TagCreateButton />
+        </div>
       </header>
 
       {tags.length > 0 ? (
         <div className="tag-cloud" role="list">
           {tags.map((tag) => (
-            <Link
-              key={tag.slug}
-              href={`/tags/${tag.slug}`}
-              className="tag-cloud-item"
-              style={heatStyle(tag, max)}
-              role="listitem"
-            >
-              {tag.name}
-              <span className="tag-cloud-count mono">{tag.count}</span>
-            </Link>
+            <span className="tag-cloud-cell" key={tag.slug} role="listitem">
+              <Link
+                href={`/tags/${tag.slug}`}
+                className="tag-cloud-item"
+                style={heatStyle(tag, max)}
+              >
+                {tag.name}
+                <span className="tag-cloud-count mono">{tag.count}</span>
+              </Link>
+              <TagManageSlot tag={tag} />
+            </span>
           ))}
         </div>
       ) : (
@@ -69,7 +74,7 @@ export default async function TagsPage() {
           variant="site"
           copy={{
             title: "还没有标签",
-            desc: "登记作品时填写标签，这里会按热度生成标签云。",
+            desc: "用右上角「＋ 新建标签」创建第一个标签，或登记作品时填写标签，这里会按热度生成标签云。",
           }}
         />
       )}

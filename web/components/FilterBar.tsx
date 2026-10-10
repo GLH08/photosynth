@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * FilterBar（DESIGN 5.8）：筛选 chips——比例[全部|竖幅|方形|横幅]、专辑[全部|…]、
+ * FilterBar（DESIGN 5.8，Build-E【4】）：筛选 chips——比例[全部|16:9|9:16|1:1|4:3|3:4|3:2|2:3|4:5]、
  * 标签（多选 AND）、仅精选 ★；组名前置 13px ink-500；移动端横向滚动（边缘渐隐）。
  * 单选组互斥、标签组多选；变更经 onChange 上报（URL query 同步由页面层负责）；
  * 结果数实时更新（「共 N 幅」ink-300）；有选中时出现「清除全部筛选」Ghost 按钮。
@@ -24,9 +24,14 @@ interface Props {
 
 const RATIO_OPTIONS: { value?: RatioBucket; label: string }[] = [
   { value: undefined, label: "全部" },
-  { value: "portrait", label: "竖幅" },
-  { value: "square", label: "方形" },
-  { value: "landscape", label: "横幅" },
+  { value: "16:9", label: "16:9" },
+  { value: "9:16", label: "9:16" },
+  { value: "1:1", label: "1:1" },
+  { value: "4:3", label: "4:3" },
+  { value: "3:4", label: "3:4" },
+  { value: "3:2", label: "3:2" },
+  { value: "2:3", label: "2:3" },
+  { value: "4:5", label: "4:5" },
 ];
 
 export default function FilterBar({

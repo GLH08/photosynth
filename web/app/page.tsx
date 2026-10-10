@@ -96,7 +96,7 @@ export default async function Home() {
               variant="site"
               copy={{
                 title: "还没有精选作品",
-                desc: "在管理台把作品标记为「精选 ★」后，会陈列在这里。",
+                desc: "把作品标记为「精选 ★」（卡片 hover 编辑，或详情页管理按钮）后，会陈列在这里。",
               }}
             />
           )}
@@ -126,7 +126,7 @@ export default async function Home() {
               variant="site"
               copy={{
                 title: "还没有专辑",
-                desc: "去管理台创建第一个专辑，把同主题的作品收进一起陈列。",
+                desc: "去 /albums 用「＋ 新建专辑」创建第一个专辑，把同主题的作品收进一起陈列。",
               }}
             />
           )}

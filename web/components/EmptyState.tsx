@@ -10,7 +10,7 @@ export type EmptyVariant = "site" | "filter" | "album" | "search";
 const COPY: Record<EmptyVariant, { title: string; desc: string }> = {
   site: {
     title: "这里还没有作品",
-    desc: "种子数据未启用——去管理台登记第一幅作品，或在 .env 打开 SEED_DEMO 后重启。",
+    desc: "用右上角「＋新建」登记第一幅作品，或在 .env 打开 SEED_DEMO 后重启。",
   },
   filter: {
     title: "没有符合筛选的作品",

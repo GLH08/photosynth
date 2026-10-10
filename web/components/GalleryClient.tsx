@@ -79,12 +79,34 @@ export default function GalleryClient({
   const [loadingMore, setLoadingMore] = useState(false);
   const [openWorkId, setOpenWorkId] = useState<string | null>(null);
 
+  // Build-E【4】：同路由 query 导航同步（Header 搜索回车若改用 router.push 的兜底；
+  // 当前 Header 用整页跳转时本 effect 首挂载即对齐，无副作用）。
+  // App Router 同路由 ?q= 变化会重跑 page（initialFilters 更新）但 useState 不跟进，
+  // 此处检测到外部 filters 变化 → 直接采用 SSR 数据重置列表。
+  const extKey = JSON.stringify(initialFilters);
+  useEffect(() => {
+    const curKey = JSON.stringify(filtersRef.current);
+    if (curKey === extKey) return;
+    setFilters(initialFilters);
+    filtersRef.current = initialFilters;
+    cursorRef.current = initialData?.next_cursor ?? null;
+    hasMoreRef.current = initialData?.has_more ?? false;
+    setHasMore(initialData?.has_more ?? false);
+    setTotal(initialData?.total ?? null);
+    setEntries(initialData ? toEntries(initialData.items) : []);
+    setPhase(initialData ? "ready" : "loading");
+    window.scrollTo({ top: 0, behavior: "auto" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [extKey]);
+
   const cursorRef = useRef<string | null>(initialData?.next_cursor ?? null);
   const hasMoreRef = useRef(initialData?.has_more ?? false);
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
   const openRef = useRef<string | null>(null);
   openRef.current = openWorkId;
+  const entriesRef = useRef<MasonryEntry[]>([]);
+  entriesRef.current = entries;
   const inFlight = useRef(false); // 仅约束「加载更多」单飞；首页/筛选重载按 reqSeq 丢弃过期响应
   const reqSeq = useRef(0);
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -98,9 +120,11 @@ export default function GalleryClient({
 
   const fetchPage = useCallback(
     async (cursor: string | null) => {
+      // Build-E【1】：单飞检查必须在占序号之前——否则 observer 在加载中再次触发时，
+      // seq 空转 + 直接返回，会把正在飞的正常响应判为过期丢弃，列表永久停滞（提前终止）。
+      if (cursor && inFlight.current) return;
       const seq = ++reqSeq.current; // 过期响应按序号丢弃（快速切换筛选不串页）
       if (cursor) {
-        if (inFlight.current) return; // 加载更多单飞
         inFlight.current = true;
         setLoadingMore(true);
       }
@@ -186,6 +210,25 @@ export default function GalleryClient({
     window.history.back();
   }, []);
 
+  // 前台管理：删除后列表刷新（Build-E【2】/【5】）——移除该卡并修正 total
+  const onCardDeleted = useCallback((work: WorkListItem) => {
+    setEntries((prev) => prev.filter((e) => e.work.id !== work.id));
+    setTotal((prev) => (prev != null ? Math.max(0, prev - 1) : prev));
+    if (openRef.current === work.id) {
+      setOpenWorkId(null);
+      window.history.back();
+    }
+  }, []);
+
+  // 弹窗内删除：与卡片删除同一刷新路径（onCardDeleted 已处理关弹窗 + history.back）
+  const onDialogDeleted = useCallback(
+    (id: string) => {
+      const target = entriesRef.current.find((e) => e.work.id === id)?.work;
+      if (target) onCardDeleted(target);
+    },
+    [onCardDeleted],
+  );
+
   useEffect(() => {
     const onPopState = () => {
       if (openRef.current) setOpenWorkId(null);
@@ -210,12 +253,13 @@ export default function GalleryClient({
               work={entry.work}
               enterDelayMs={entry.enterDelayMs}
               onOpen={openWork}
+              onDeleted={onCardDeleted}
             />
           </div>
         ))}
       </div>
     ) : (
-      <MasonryGrid entries={entries} onOpen={openWork} />
+      <MasonryGrid entries={entries} onOpen={openWork} onDeleted={onCardDeleted} />
     );
 
   const skeleton =
@@ -262,12 +306,17 @@ export default function GalleryClient({
       {loadingMore && <MasonrySkeletonSmall count={4} />}
       {phase === "ready" && entries.length > 0 && !hasMore && (
         <p className="grid-footer-note">
-          已显示全部 {total ?? entries.length} {unit}作品
+          已加载 {entries.length} / 共 {total ?? entries.length} {unit}作品
         </p>
       )}
 
       {openWorkId && (
-        <WorkDialog initialId={openWorkId} filters={merged(filters)} onClose={closeDialog} />
+        <WorkDialog
+          initialId={openWorkId}
+          filters={merged(filters)}
+          onClose={closeDialog}
+          onDeleted={onDialogDeleted}
+        />
       )}
     </>
   );
