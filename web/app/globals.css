@@ -553,13 +553,6 @@ button {
   color: var(--c-ink-500);
 }
 
-.footer-admin {
-  font-size: var(--fs-13);
-  color: var(--c-ink-300);
-}
-
-.footer-admin:hover { color: var(--c-primary-600); }
-
 /* ============================================================
    5.8 FilterBar 筛选 chips
    ============================================================ */
@@ -816,6 +809,41 @@ button {
     transform: scale(1.08);
     opacity: 1;
   }
+}
+
+/* 前台管理浮层（Build-E【2】）：卡片 hover 出编辑/删除；触控端常显（无 hover 能力时不隐藏） */
+.card-manage {
+  position: absolute;
+  top: var(--sp-2);
+  right: var(--sp-2);
+  display: none;
+  z-index: 2;
+}
+
+@media (hover: hover) {
+  .card-work:hover .card-manage { display: block; }
+}
+
+@media (hover: none) {
+  .card-manage { display: block; }
+}
+
+.card-manage .manage-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.card-manage .manage-actions .btn {
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--sh-1);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+/* 详情操作区旁的管理按钮行 */
+.detail-manage .manage-actions {
+  display: flex;
+  gap: var(--sp-2);
 }
 
 /* 断链兜底：sunken 衬底 + 断链图标 + 「查看原链」 */
@@ -2087,6 +2115,68 @@ button {
   font-size: 11px;
   color: var(--c-ink-300);
 }
+
+/* ============================================================
+   Build-E【2】前台集合管理：页头操作区 + 专辑/标签管理行
+   ============================================================ */
+.page-head-actions {
+  margin-top: var(--sp-3);
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.album-cell {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.album-cell .album-card { flex: 1; }
+
+.album-cell-manage {
+  padding: 8px 2px 0;
+  min-height: 36px; /* 未登录 Slot 不渲染时不塌行 */
+}
+
+.album-cell-manage .manage-actions {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+/* 专辑编辑表单嵌在卡片下方：与卡同宽，不撑破网格列 */
+.album-cell-manage .inline-edit { max-width: none; }
+
+.tag-cloud-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 标签管理行：默认隐藏，hover 整组才出现（未登录 Slot 不渲染，无影响） */
+.tag-cloud-cell .tag-manage { display: none; }
+
+@media (hover: hover) {
+  .tag-cloud-cell:hover .tag-manage { display: inline-flex; }
+}
+
+@media (hover: none) {
+  .tag-cloud-cell .tag-manage { display: inline-flex; }
+}
+
+.tag-manage {
+  align-items: center;
+  gap: 4px;
+}
+
+.tag-rename-form {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tag-rename-form .form-input { width: 140px; height: 36px; }
 
 /* 专辑/标签详情页头部：标题 + 徽章行 */
 .album-head .album-title-row,

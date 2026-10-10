@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 
 /**
  * 全局布局（DESIGN 4.2）：
- * Header（sticky 毛玻璃白）→ 内容区（max-width 1440px，gutter 24/16px）→ Footer（stats 摘要 + 管理入口）。
+ * Header（sticky 毛玻璃白）→ 内容区（max-width 1440px，gutter 24/16px）→ Footer（stats 摘要）。
  */
 export default function RootLayout({
   children,
