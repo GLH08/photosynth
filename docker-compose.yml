@@ -1,0 +1,52 @@
+# 光合画廊 Photosynth —— 2 容器拓扑（DESIGN 第 6 章）
+# web(Next standalone :3000, 绑宿主回环) → 同源代理 /api/* → api(FastAPI :8000, expose 不映射)
+# api 挂 SQLite WAL 卷 ./data:/data；启动钩子 alembic upgrade head → 种子 → uvicorn
+
+x-api-env: &api-env # YAML 锚点消灭 env 大段重复
+  DATABASE_URL: ${DATABASE_URL:-sqlite:////data/gallery.db}
+  ADMIN_TOKEN: ${ADMIN_TOKEN:?必须设置，空值拒绝启动}
+  SESSION_SECRET: ${SESSION_SECRET:?必须设置，≥32 字符}
+  SEED_DEMO: ${SEED_DEMO:-true}
+  PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+
+services:
+  api:
+    build: ./api
+    environment: *api-env
+    volumes:
+      - ./data:/data # SQLite 与 WAL 显式持久化
+    expose:
+      - "8000" # 不对宿主映射
+    networks: [internal]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  web:
+    build: ./web
+    environment:
+      BACKEND_ORIGIN: http://api:8000
+      PORT: 3000
+    ports:
+      - "127.0.0.1:${PORT:-3000}:3000" # 只绑回环，TLS 交外层反代
+    networks: [internal]
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      # 经同源代理穿透验证全链路
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+networks:
+  internal:
+    driver: bridge
+  # shared-web: { external: true, name: net-web }  # 可选：容器内直连宿主 Chevereto 时启用
