@@ -138,6 +138,32 @@ export interface TrashPage {
   has_more: boolean;
 }
 
+// ---------------------------------------------------------------- 批量操作（Build-H【2】）
+
+/** PATCH /api/admin/works/batch 的操作类型 */
+export type BatchOp =
+  | "trash"
+  | "restore"
+  | "purge"
+  | "featured"
+  | "unfeatured"
+  | "move_album"
+  | "add_tags";
+
+export interface BatchPayload {
+  ids: string[];
+  op: BatchOp;
+  /** op=move_album 必填 */
+  album_slug?: string;
+  /** op=add_tags 必填（追加，不覆盖） */
+  tag_slugs?: string[];
+}
+
+export interface BatchResult {
+  ok: number;
+  failed: { id: string; reason: string }[];
+}
+
 export function emptyFilters(): GalleryFilters {
   return { tags: [] };
 }

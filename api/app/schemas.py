@@ -121,6 +121,29 @@ class WorkUpdate(BaseModel):
         return _require_https(v, info.field_name or "url")
 
 
+# Build-H【2】批量操作（PATCH /api/admin/works/batch）
+BatchOp = Literal[
+    "trash", "restore", "purge", "featured", "unfeatured", "move_album", "add_tags"
+]
+
+
+class WorkBatch(BaseModel):
+    """批量作品操作：一次提交 ids + op，逐条处理（单条失败不影响其余）。
+
+    - trash / restore / purge：回收站三态；
+    - featured / unfeatured：精选开关；
+    - move_album：需 album_slug；
+    - add_tags：需 tag_slugs（追加，不覆盖已有标签）。
+    """
+
+    ids: list[str] = Field(min_length=1, max_length=1000)
+    op: BatchOp
+    album_slug: str | None = Field(default=None, max_length=_SLUG_MAX)
+    tag_slugs: list[str] = Field(default_factory=list)
+
+    model_config = {"extra": "ignore"}
+
+
 class AlbumCreate(BaseModel):
     slug: str = Field(min_length=1, max_length=_SLUG_MAX)
     name: str = Field(min_length=1)

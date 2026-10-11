@@ -27,6 +27,13 @@ interface Props {
   textMode?: CardTextMode;
   onOpen?: (work: WorkListItem) => void;
   onDeleted?: (work: WorkListItem) => void;
+  /** Build-H【1】快捷精选切换回调 */
+  onFeaturedChange?: (id: string, next: boolean) => void;
+  /** Build-H【2】选择模式 */
+  selectMode?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (work: WorkListItem) => void;
+  onLongPress?: (work: WorkListItem) => void;
 }
 
 /** 列数断点（与旧 CSS 一致：<640→2 / ≥1024→3 / ≥1280→4 / ≥1536→5） */
@@ -74,7 +81,17 @@ export function distribute<T>(
 
 const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
-export default function MasonryGrid({ entries, textMode = "full", onOpen, onDeleted }: Props) {
+export default function MasonryGrid({
+  entries,
+  textMode = "full",
+  onOpen,
+  onDeleted,
+  onFeaturedChange,
+  selectMode = false,
+  selectedIds,
+  onToggleSelect,
+  onLongPress,
+}: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [cols, setCols] = useState(3); // SSR 默认；挂载后按容器宽度校正
 
@@ -105,6 +122,11 @@ export default function MasonryGrid({ entries, textMode = "full", onOpen, onDele
               enterDelayMs={entry.enterDelayMs}
               onOpen={onOpen}
               onDeleted={onDeleted}
+              onFeaturedChange={onFeaturedChange}
+              selectMode={selectMode}
+              selected={selectedIds?.has(entry.work.id) ?? false}
+              onToggleSelect={onToggleSelect}
+              onLongPress={onLongPress}
             />
           ))}
         </div>

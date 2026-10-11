@@ -24,6 +24,9 @@ interface Props {
   /** Build-F【1】浏览模式（scroll 连续滚动 / paged 分页） */
   mode: BrowseMode;
   onModeChange: (mode: BrowseMode) => void;
+  /** Build-H【2】批量选择模式入口 */
+  selectMode?: boolean;
+  onToggleSelect?: () => void;
 }
 
 const SORT_OPTIONS: { value: SortOrder; label: string }[] = [
@@ -60,6 +63,8 @@ export default function FilterBar({
   onChange,
   mode,
   onModeChange,
+  selectMode = false,
+  onToggleSelect,
 }: Props) {
   const patch = (part: Partial<GalleryFilters>) => onChange({ ...filters, ...part });
 
@@ -197,6 +202,16 @@ export default function FilterBar({
             <span className="filter-total">
               共 {total} {unit}
             </span>
+          )}
+          {onToggleSelect && (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              aria-pressed={selectMode}
+              onClick={onToggleSelect}
+            >
+              {selectMode ? "退出批量选择" : "批量选择"}
+            </button>
           )}
           {active && (
             <button

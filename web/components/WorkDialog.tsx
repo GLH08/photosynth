@@ -31,11 +31,20 @@ interface Props {
   onClose: () => void;
   /** 弹窗内删除成功后回调（页面层移除该卡） */
   onDeleted?: (id: string) => void;
+  /** Build-H【1】弹窗内快捷精选切换成功后回调（页面层更新列表 ★） */
+  onFeaturedChange?: (id: string, next: boolean) => void;
   /** Build-F【3】点专辑信息卡 → 跳转专辑页（页面层负责收起覆盖层 + 导航） */
   onAlbumClick?: (slug: string) => void;
 }
 
-export default function WorkDialog({ initialId, filters, onClose, onDeleted, onAlbumClick }: Props) {
+export default function WorkDialog({
+  initialId,
+  filters,
+  onClose,
+  onDeleted,
+  onFeaturedChange,
+  onAlbumClick,
+}: Props) {
   const [currentId, setCurrentId] = useState(initialId);
   const [data, setData] = useState<WorkDetailResponse | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -143,6 +152,12 @@ export default function WorkDialog({ initialId, filters, onClose, onDeleted, onA
 
   const work = data?.work ?? null;
 
+  // Build-H【1】快捷精选：更新本地 data（星级即时刷新）并通知页面层更新列表
+  const handleFeaturedChange = (next: boolean) => {
+    setData((prev) => (prev ? { ...prev, work: { ...prev.work, featured: next } } : prev));
+    onFeaturedChange?.(currentId, next);
+  };
+
   return (
     <div
       className="dialog-overlay"
@@ -234,6 +249,7 @@ export default function WorkDialog({ initialId, filters, onClose, onDeleted, onA
               onPreviewRef={setPreviewUrl}
               manage
               onAlbumClick={onAlbumClick}
+              onFeaturedChange={handleFeaturedChange}
               onDeleted={(id) => {
                 onDeleted?.(id);
                 onClose();

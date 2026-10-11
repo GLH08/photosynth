@@ -13,17 +13,28 @@
  *   baseFilters 为页面锁定筛选（专辑/标签详情页），始终并入请求且不可被清除。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 
+import BatchToolbar from "./BatchToolbar";
 import EmptyState, { type EmptyVariant } from "./EmptyState";
 import FilterBar from "./FilterBar";
 import MasonryCard from "./MasonryCard";
 import MasonryGrid, { staggerDelay, type MasonryEntry } from "./MasonryGrid";
 import Pagination from "./Pagination";
 import { MasonrySkeleton, MasonrySkeletonSmall, VideoGridSkeleton } from "./Skeleton";
+import { useToast } from "./Toast";
 import WorkDialog from "./WorkDialog";
-import { PAGE_SIZE, buildWorksQuery, clientGet, listUrlFromFilters } from "@/lib/api";
+import {
+  ApiClientError,
+  PAGE_SIZE,
+  batchWorks,
+  buildWorksQuery,
+  clientGet,
+  listUrlFromFilters,
+} from "@/lib/api";
 import type {
   AlbumInfo,
+  BatchOp,
   BrowseMode,
   GalleryFilters,
   TagInfo,
@@ -93,6 +104,14 @@ export default function GalleryClient({
   );
   const [loadingMore, setLoadingMore] = useState(false);
   const [openWorkId, setOpenWorkId] = useState<string | null>(null);
+
+  // Build-H【2】批量选择模式
+  const router = useRouter();
+  const pathname = usePathname();
+  const toast = useToast();
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [batchBusy, setBatchBusy] = useState(false);
 
   const cursorRef = useRef<string | null>(initialData?.next_cursor ?? null);
   const hasMoreRef = useRef(initialData?.has_more ?? false);
@@ -183,6 +202,8 @@ export default function GalleryClient({
       setEntries([]);
       setTotal(null);
       setPhase("loading");
+      setSelectMode(false); // 列表重载时退出批量选择，避免选中项与视图不一致
+      setSelected(new Set());
       syncUrl(nextFilters, nextMode, nextPage);
       window.scrollTo({ top: 0, behavior: "auto" });
       void runFetch(
@@ -333,6 +354,128 @@ export default function GalleryClient({
     [onCardDeleted],
   );
 
+  // ---------------- Build-H【1】快捷精选：卡片/弹窗切换后即时更新列表 ★
+  const onFeaturedChange = useCallback((id: string, next: boolean) => {
+    setEntries((prev) =>
+      prev.map((e) => (e.work.id === id ? { ...e, work: { ...e.work, featured: next } } : e)),
+    );
+  }, []);
+
+  // ---------------- Build-H【2】批量选择
+  const toggleSelect = useCallback((work: WorkListItem) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(work.id)) next.delete(work.id);
+      else next.add(work.id);
+      return next;
+    });
+  }, []);
+
+  const selectAllLoaded = useCallback(() => {
+    setSelected(new Set(entriesRef.current.map((e) => e.work.id)));
+  }, []);
+
+  const clearSelection = useCallback(() => setSelected(new Set()), []);
+
+  const exitSelectMode = useCallback(() => {
+    setSelectMode(false);
+    setSelected(new Set());
+  }, []);
+
+  const enterSelectMode = useCallback(() => setSelectMode(true), []);
+
+  // 长按卡片：进入选择模式并选中该卡
+  const onLongPress = useCallback((work: WorkListItem) => {
+    setSelectMode(true);
+    setSelected((prev) => new Set(prev).add(work.id));
+  }, []);
+
+  const toggleSelectMode = useCallback(() => {
+    setSelectMode((prev) => {
+      if (prev) setSelected(new Set()); // 退出时清空选择
+      return !prev;
+    });
+  }, []);
+
+  /**
+   * 批量操作：调后端 → 本地列表即时更新（移除/改字段）→ 清空选择退出选择模式。
+   * 单项失败不阻断整体（后端逐条处理），toast 汇报成功/失败数量。
+   */
+  const runBatch = useCallback(
+    async (
+      op: BatchOp,
+      extra: { album_slug?: string; tag_slugs?: string[] } = {},
+    ) => {
+      const ids = Array.from(selected);
+      if (ids.length === 0 || batchBusy) return;
+      setBatchBusy(true);
+      try {
+        const res = await batchWorks({ ids, op, ...extra });
+        const idSet = new Set(ids);
+
+        // 本地即时更新：按 op 改变列表内容/字段
+        if (op === "trash" || op === "purge") {
+          setEntries((prev) => prev.filter((e) => !idSet.has(e.work.id)));
+          setTotal((prev) => (prev != null ? Math.max(0, prev - res.ok) : prev));
+        } else if (op === "featured" || op === "unfeatured") {
+          const flag = op === "featured";
+          setEntries((prev) =>
+            prev
+              .filter((e) => !(filters.featured && !flag && idSet.has(e.work.id)))
+              .map((e) =>
+                idSet.has(e.work.id) ? { ...e, work: { ...e.work, featured: flag } } : e,
+              ),
+          );
+        } else if (op === "move_album") {
+          const slug = extra.album_slug ?? null;
+          const albumInfo = albums.find((a) => a.slug === slug);
+          const inAlbumView = Boolean(baseFilters?.album);
+          setEntries((prev) =>
+            prev
+              .filter((e) => !(inAlbumView && slug !== baseFilters?.album && idSet.has(e.work.id)))
+              .map((e) =>
+                idSet.has(e.work.id)
+                  ? {
+                      ...e,
+                      work: {
+                        ...e.work,
+                        album: slug ? { slug, name: albumInfo?.name ?? slug } : null,
+                      },
+                    }
+                  : e,
+              ),
+          );
+        } else if (op === "add_tags") {
+          setEntries((prev) =>
+            prev.map((e) => {
+              if (!idSet.has(e.work.id)) return e;
+              const existing = new Set(e.work.tags.map((t) => t.slug));
+              const added = (extra.tag_slugs ?? [])
+                .filter((s) => !existing.has(s))
+                .map((s) => ({ slug: s, name: tags.find((t) => t.slug === s)?.name ?? s }));
+              return { ...e, work: { ...e.work, tags: [...e.work.tags, ...added] } };
+            }),
+          );
+        }
+
+        const label = res.ok > 0 ? `已处理 ${res.ok} 项` : "未处理任何项";
+        const fail = res.failed.length > 0 ? `，${res.failed.length} 项失败` : "";
+        toast.push(`${label}${fail}`, res.failed.length > 0 ? "warning" : "success");
+        setSelected(new Set());
+        router.refresh();
+      } catch (err) {
+        if (err instanceof ApiClientError && err.status === 401) {
+          router.replace(`/admin/login?next=${encodeURIComponent(pathname)}`);
+          return;
+        }
+        toast.push(err instanceof Error ? err.message : "批量操作失败", "error");
+      } finally {
+        setBatchBusy(false);
+      }
+    },
+    [selected, batchBusy, filters.featured, baseFilters, albums, tags, router, pathname],
+  );
+
   useEffect(() => {
     const onPopState = () => {
       if (openRef.current) setOpenWorkId(null);
@@ -363,12 +506,26 @@ export default function GalleryClient({
               enterDelayMs={entry.enterDelayMs}
               onOpen={openWork}
               onDeleted={onCardDeleted}
+              onFeaturedChange={onFeaturedChange}
+              selectMode={selectMode}
+              selected={selected.has(entry.work.id)}
+              onToggleSelect={toggleSelect}
+              onLongPress={onLongPress}
             />
           </div>
         ))}
       </div>
     ) : (
-      <MasonryGrid entries={entries} onOpen={openWork} onDeleted={onCardDeleted} />
+      <MasonryGrid
+        entries={entries}
+        onOpen={openWork}
+        onDeleted={onCardDeleted}
+        onFeaturedChange={onFeaturedChange}
+        selectMode={selectMode}
+        selectedIds={selected}
+        onToggleSelect={toggleSelect}
+        onLongPress={onLongPress}
+      />
     );
 
   const skeleton =
@@ -387,7 +544,28 @@ export default function GalleryClient({
         onChange={applyFilters}
         mode={mode}
         onModeChange={changeMode}
+        selectMode={selectMode}
+        onToggleSelect={toggleSelectMode}
       />
+
+      {selectMode && (
+        <BatchToolbar
+          count={selected.size}
+          total={total}
+          unit={unit}
+          albums={albums}
+          tags={tags}
+          busy={batchBusy}
+          onSelectAll={selectAllLoaded}
+          onClear={clearSelection}
+          onExit={exitSelectMode}
+          onTrash={() => runBatch("trash")}
+          onFeature={() => runBatch("featured")}
+          onUnfeature={() => runBatch("unfeatured")}
+          onMoveAlbum={(slug) => runBatch("move_album", { album_slug: slug })}
+          onAddTags={(slugs) => runBatch("add_tags", { tag_slugs: slugs })}
+        />
+      )}
 
       {phase === "loading" && entries.length === 0 ? skeleton : grid}
 
@@ -442,6 +620,7 @@ export default function GalleryClient({
           filters={merged(filters)}
           onClose={closeDialog}
           onDeleted={onDialogDeleted}
+          onFeaturedChange={onFeaturedChange}
           onAlbumClick={openAlbum}
         />
       )}

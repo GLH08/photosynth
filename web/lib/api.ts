@@ -5,6 +5,8 @@
  */
 import type {
   AlbumInfo,
+  BatchPayload,
+  BatchResult,
   BrowseMode,
   GalleryFilters,
   RatioBucket,
@@ -209,6 +211,22 @@ export function purgeWork(id: string): Promise<null> {
     "DELETE",
     `/api/admin/works/${encodeURIComponent(id)}/purge`,
   );
+}
+
+// ---------------------------------------------------------------- 批量操作 / 快捷精选（Build-H）
+
+/** PATCH /api/admin/works/{id}：仅切换 featured（卡片/详情右上角快捷按钮），返回更新后的作品。 */
+export function toggleFeatured(id: string, featured: boolean): Promise<{ work: WorkListItem }> {
+  return clientSend<{ work: WorkListItem }>(
+    "PATCH",
+    `/api/admin/works/${encodeURIComponent(id)}`,
+    { featured },
+  ) as Promise<{ work: WorkListItem }>;
+}
+
+/** PATCH /api/admin/works/batch：批量操作；返回 {ok, failed}。 */
+export function batchWorks(payload: BatchPayload): Promise<BatchResult> {
+  return clientSend<BatchResult>("PATCH", "/api/admin/works/batch", payload) as Promise<BatchResult>;
 }
 
 async function unwrap<T>(r: Response): Promise<T> {

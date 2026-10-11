@@ -12,8 +12,9 @@ import WorkDetailPanel from "./WorkDetailPanel";
 import WorkMedia from "./WorkMedia";
 import type { WorkDetail } from "@/lib/types";
 
-export default function WorkPageBody({ work }: { work: WorkDetail }) {
+export default function WorkPageBody({ work: initialWork }: { work: WorkDetail }) {
   const router = useRouter();
+  const [work, setWork] = useState<WorkDetail>(initialWork);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   return (
@@ -27,6 +28,7 @@ export default function WorkPageBody({ work }: { work: WorkDetail }) {
           previewUrl={previewUrl}
           onPreviewRef={setPreviewUrl}
           manage
+          onFeaturedChange={(next) => setWork((w) => ({ ...w, featured: next }))}
           onDeleted={() => router.replace("/gallery")}
         />
       </div>

@@ -13,6 +13,7 @@ import { copyText } from "@/lib/copy";
 import { formatDuration, formatResolution } from "@/lib/api";
 import type { WorkDetail } from "@/lib/types";
 import { useToast } from "./Toast";
+import QuickFeatureButton from "./QuickFeatureButton";
 import WorkManageButtons from "./WorkManageButtons";
 
 interface Props {
@@ -24,6 +25,8 @@ interface Props {
   manage?: boolean;
   /** 删除成功后回调（容器负责关弹窗/回退） */
   onDeleted?: (id: string) => void;
+  /** Build-H【1】快捷精选切换成功后回调（容器更新星级/列表） */
+  onFeaturedChange?: (next: boolean) => void;
   /**
    * Build-F【3】点击专辑信息卡的行为。弹窗内传入（收起覆盖层 + 跳专辑页，
    * 避免 /works/[id] 的 pushState 与 App Router 状态不同步导致 Link 失效）；
@@ -55,6 +58,7 @@ export default function WorkDetailPanel({
   onPreviewRef,
   manage = false,
   onDeleted,
+  onFeaturedChange,
   onAlbumClick,
 }: Props) {
   const toast = useToast();
@@ -225,6 +229,12 @@ export default function WorkDetailPanel({
         </div>
         {manage && (
           <div className="detail-manage" style={{ marginTop: 8 }}>
+            <QuickFeatureButton
+              id={work.id}
+              title={work.title}
+              featured={work.featured}
+              onToggled={onFeaturedChange}
+            />
             <WorkManageButtons
               id={work.id}
               title={work.title}

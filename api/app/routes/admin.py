@@ -23,6 +23,7 @@ from ..schemas import (
     AlbumUpdate,
     TagCreate,
     TagUpdate,
+    WorkBatch,
     WorkCreate,
     WorkUpdate,
 )
@@ -200,6 +201,69 @@ def _get_work_or_404(session: Session, work_id: str) -> Work:
     if work is None:
         raise ApiError(404, "work_not_found", "作品不存在")
     return work
+
+
+@router.patch("/works/batch")
+def batch_works(payload: WorkBatch, session: Session = Depends(get_session)):
+    """批量作品操作（Build-H【2】）：{ids, op, ...} → {ok, failed}。
+
+    逐条独立处理：单条失败（id 不存在 / 无操作权限）不影响其余，失败项带原因返回。
+    精选/移入专辑/加标签仅作用于「未删除」作品；restore/purge 可作用于回收站内作品；
+    trash 仅作用于未删除作品（已在回收站者计为失败，不重复处理）。
+    专辑/标签等 op 级参数在循环前一次性解析，参数非法 → 整体 4xx（而非逐条失败）。
+    """
+    if payload.op == "move_album" and not payload.album_slug:
+        raise ApiError(422, "validation_error", "move_album 需要 album_slug 参数")
+    if payload.op == "add_tags" and not payload.tag_slugs:
+        raise ApiError(422, "validation_error", "add_tags 需要 tag_slugs 参数")
+
+    album = _resolve_album(session, payload.album_slug) if payload.op == "move_album" else None
+    # 标签延迟到首个有效作品时再建，避免「全部 id 失败」也凭空造出空标签
+    add_tags: list[Tag] | None = None
+
+    include_deleted = payload.op in ("restore", "purge")
+    now = utcnow_iso()
+    ok = 0
+    failed: list[dict[str, str]] = []
+
+    # 去重保序，避免同一 id 被处理两次（幂等语义下二次效果不一致）
+    for work_id in dict.fromkeys(payload.ids):
+        work = load_work(session, work_id, include_deleted=include_deleted)
+        # trash/featured/unfeatured/move_album/add_tags 只作用于未删除作品；
+        # 已在回收站（或不存在）→ 失败。restore/purge 见 include_deleted。
+        if work is None or (payload.op == "trash" and work.deleted_at is not None):
+            failed.append({"id": work_id, "reason": "not_found"})
+            continue
+
+        if payload.op == "trash":
+            work.deleted_at = now
+            work.updated_at = now
+        elif payload.op == "restore":
+            work.deleted_at = None
+            work.updated_at = now
+        elif payload.op == "purge":
+            session.delete(work)  # work_tags 经 FK ON DELETE CASCADE 解除
+        elif payload.op == "featured":
+            work.featured = 1
+            work.updated_at = now
+        elif payload.op == "unfeatured":
+            work.featured = 0
+            work.updated_at = now
+        elif payload.op == "move_album":
+            work.album_id = album.id if album else None
+            work.updated_at = now
+        elif payload.op == "add_tags":
+            if add_tags is None:
+                add_tags = _get_or_create_tags(session, payload.tag_slugs)
+            existing = {t.id for t in work.tags}
+            for tag in add_tags:
+                if tag.id not in existing:  # 追加不覆盖；已有则跳过
+                    work.tags.append(tag)
+            work.updated_at = now
+        ok += 1
+
+    session.commit()
+    return {"ok": ok, "failed": failed}
 
 
 @router.patch("/works/{work_id}")
