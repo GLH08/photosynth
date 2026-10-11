@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from .models import Album, Tag, Work
+from .workquery import work_is_active
 
 
 def _json_loads(raw: str | None, default: Any) -> Any:
@@ -76,16 +77,22 @@ def work_to_dict(work: Work, *, admin: bool = False, detail: bool = False) -> di
                 "source_meta": _json_loads(work.source_meta, None),
                 "created_at": work.created_at,
                 "updated_at": work.updated_at,
+                "deleted_at": work.deleted_at,  # Build-G：回收站列表展示删除时间
             }
         )
     return d
 
 
-def load_work(session: Session, work_id: str) -> Work:
-    """带 album/tags 预加载取作品；不存在 → 由调用方抛 404。"""
-    work = session.scalar(
-        select(Work).where(Work.id == work_id).options(selectinload(Work.tags))
-    )
+def load_work(session: Session, work_id: str, *, include_deleted: bool = False) -> Work | None:
+    """带 album/tags 预加载取作品；不存在 → 由调用方抛 404。
+
+    Build-G：默认排除回收站（deleted_at IS NOT NULL）——公开详情 / 编辑 / 删除均
+    只见「未删除」作品；回收站、restore、purge 传 include_deleted=True 读原始行。
+    """
+    stmt = select(Work).where(Work.id == work_id).options(selectinload(Work.tags))
+    if not include_deleted:
+        stmt = stmt.where(work_is_active())
+    work = session.scalar(stmt)
     return work  # type: ignore[return-value]
 
 

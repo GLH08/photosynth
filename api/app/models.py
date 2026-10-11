@@ -59,6 +59,8 @@ class Work(Base):
     created_at: Mapped[str] = mapped_column(Text, nullable=False)
     published_at: Mapped[str | None] = mapped_column(Text, nullable=True)
     updated_at: Mapped[str] = mapped_column(Text, nullable=False)
+    # Build-G 回收站（软删除）：NULL = 正常；非空 = 已移入回收站的时间（UTC ISO8601）
+    deleted_at: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     album: Mapped["Album | None"] = relationship(back_populates="works")
     tags: Mapped[list["Tag"]] = relationship(
@@ -90,6 +92,8 @@ class Work(Base):
         Index("idx_works_album", "album_id", text("created_at DESC")),
         Index("idx_works_featured", "featured", text("created_at DESC")),
         Index("idx_works_hash", "content_hash"),
+        # Build-G 回收站：按删除时间取回收站列表
+        Index("idx_works_deleted", "deleted_at"),
     )
 
 

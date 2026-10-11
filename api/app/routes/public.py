@@ -30,6 +30,7 @@ from ..errors import ApiError
 from ..models import Album, Tag, Work, WorkTag
 from ..serializers import load_work, work_to_dict
 from ..textsort import natural_sort_key
+from ..workquery import work_is_active
 
 router = APIRouter(prefix="/api", tags=["public"])
 
@@ -137,7 +138,7 @@ def _filter_conditions(
     featured: bool | None,
     q: str | None,
 ) -> list[ColumnElement[bool]]:
-    conds: list[ColumnElement[bool]] = []
+    conds: list[ColumnElement[bool]] = [work_is_active()]  # Build-G：公开查询一律排除回收站
     if type:
         conds.append(Work.type == type)
     if album:
@@ -374,7 +375,11 @@ def get_work(
 
 def _album_public_dict(album: Album, session: Session) -> dict:
     work_count = (
-        session.scalar(select(func.count(Work.id)).where(Work.album_id == album.id))
+        session.scalar(
+            select(func.count(Work.id)).where(
+                Work.album_id == album.id, work_is_active()
+            )
+        )
         or 0
     )
     return {
@@ -431,7 +436,7 @@ def list_tags(request: Request, session: Session = Depends(get_session)):
     rows = session.execute(
         select(Tag.slug, Tag.name, func.count(Work.id).label("cnt"))
         .outerjoin(WorkTag, WorkTag.tag_id == Tag.id)
-        .outerjoin(Work, Work.id == WorkTag.work_id)
+        .outerjoin(Work, and_(Work.id == WorkTag.work_id, work_is_active()))
         .group_by(Tag.id, Tag.slug, Tag.name)
         .order_by(func.count(Work.id).desc(), Tag.name.asc())
     ).all()
@@ -443,7 +448,9 @@ def list_tags(request: Request, session: Session = Depends(get_session)):
 @router.get("/stats")
 def stats(request: Request, session: Session = Depends(get_session)):
     def _count(*conds) -> int:
-        return session.scalar(select(func.count(Work.id)).where(*conds)) or 0
+        return session.scalar(
+            select(func.count(Work.id)).where(work_is_active(), *conds)
+        ) or 0
 
     return cached_json(
         request,
@@ -530,7 +537,9 @@ def media_redirect(
 
     不存在 → 404；该 kind 无文件 → 404 media_not_found。
     """
-    work = session.scalar(select(Work).where(Work.id == work_id))
+    work = session.scalar(
+        select(Work).where(Work.id == work_id, work_is_active())
+    )
     if work is None:
         raise ApiError(404, "work_not_found", "作品不存在")
     url = {

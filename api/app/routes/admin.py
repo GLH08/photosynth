@@ -27,6 +27,7 @@ from ..schemas import (
     WorkUpdate,
 )
 from ..serializers import album_to_dict, load_work, tag_to_dict_with_count, work_to_dict
+from ..workquery import work_is_active
 
 router = APIRouter(
     prefix="/api/admin",
@@ -147,8 +148,8 @@ def list_works(
     cursor: str | None = None,
     limit: int = Query(default=24, ge=1, le=100),
 ):
-    """管理列表（无发布流）：全量作品 + 统计（DESIGN 3.2）。"""
-    query = select(Work)
+    """管理列表（无发布流）：全量作品（不含回收站）+ 统计（DESIGN 3.2）。"""
+    query = select(Work).where(work_is_active())
     if type:
         query = query.where(Work.type == type)
     if q:
@@ -178,7 +179,7 @@ def list_works(
         ).decode().rstrip("=")
 
     def _count(*conds) -> int:
-        return session.scalar(select(func.count(Work.id)).where(*conds)) or 0
+        return session.scalar(select(func.count(Work.id)).where(work_is_active(), *conds)) or 0
 
     stats = {
         "total": _count(),
@@ -243,10 +244,75 @@ def delete_work(
     confirm: str | None = Query(default=None),
     session: Session = Depends(get_session),
 ):
-    """物理删除数据库行；绝不删外部存储文件（软删除纪律，DESIGN 2.6）。"""
+    """软删除（移入回收站，Build-G）：置 deleted_at，不物理删除数据库行。
+
+    外部存储文件一律不删（软删除纪律，DESIGN 2.6）；可在 /api/admin/trash 恢复，
+    或经 DELETE /works/{id}/purge 物理清理。
+    """
     if confirm != "true":
         raise ApiError(400, "confirm_required", "删除需显式 ?confirm=true")
-    work = _get_work_or_404(session, work_id)
+    work = _get_work_or_404(session, work_id)  # 已在回收站者不重复处理 → 404
+    now = utcnow_iso()
+    work.deleted_at = now
+    work.updated_at = now
+    session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/trash")
+def list_trash(
+    session: Session = Depends(get_session),
+    limit: int = Query(default=24, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+):
+    """回收站：仅已软删除作品，按 deleted_at 倒序（最近删除在前）+ offset 分页。
+
+    total 供前端回收站入口 badge 计数（limit=1 即可取总数）。
+    """
+    deleted = Work.deleted_at.is_not(None)
+    total = session.scalar(select(func.count(Work.id)).where(deleted)) or 0
+    rows = list(
+        session.scalars(
+            select(Work)
+            .where(deleted)
+            .order_by(Work.deleted_at.desc(), Work.id.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+    )
+    return {
+        "items": [
+            work_to_dict(load_work(session, w.id, include_deleted=True), admin=True)
+            for w in rows
+        ],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "has_more": offset + len(rows) < total,
+    }
+
+
+@router.post("/works/{work_id}/restore")
+def restore_work(work_id: str, session: Session = Depends(get_session)):
+    """从回收站恢复：deleted_at 置 NULL（幂等）；不存在 → 404。"""
+    work = load_work(session, work_id, include_deleted=True)
+    if work is None:
+        raise ApiError(404, "work_not_found", "作品不存在")
+    work.deleted_at = None
+    work.updated_at = utcnow_iso()
+    session.commit()
+    return {"work": work_to_dict(load_work(session, work_id), admin=True)}
+
+
+@router.delete("/works/{work_id}/purge", status_code=status.HTTP_204_NO_CONTENT)
+def purge_work(work_id: str, session: Session = Depends(get_session)):
+    """彻底删除（物理删除数据库行，不可恢复）；不存在 → 404。
+
+    外部存储文件仍不删（服务端只清理数据库记录，DESIGN 2.6）。
+    """
+    work = load_work(session, work_id, include_deleted=True)
+    if work is None:
+        raise ApiError(404, "work_not_found", "作品不存在")
     session.delete(work)  # work_tags 经 FK ON DELETE CASCADE 解除
     session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

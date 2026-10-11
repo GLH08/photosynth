@@ -1,7 +1,9 @@
 /**
- * SiteFooter（DESIGN 4.2）：stats 摘要（N 幅图片 · N 条视频 · N 个专辑）。
+ * SiteFooter（DESIGN 4.2）：stats 摘要（N 幅图片 · N 条视频 · N 个专辑）
+ * + 回收站入口（Build-G，登录可见，带数量 badge）。
  * 服务端组件：/api/stats 失败时静默降级（不显示数字）。
  */
+import TrashLink from "@/components/TrashLink";
 import { getStats } from "@/lib/api";
 
 export default async function SiteFooter() {
@@ -17,6 +19,7 @@ export default async function SiteFooter() {
             {stats.featured} 幅精选
           </p>
         )}
+        <TrashLink />
       </div>
     </footer>
   );

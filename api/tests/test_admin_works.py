@@ -137,20 +137,26 @@ def test_publish_endpoints_removed(admin):
 
 
 def test_delete_work(admin):
+    """Build-G：DELETE 语义 = 软删除（移入回收站）。行与 work_tags 均保留，可恢复。"""
     wid = _create(admin, image_payload(external_file_id="del-1", tag_slugs=["rain"]),
                   headers=None).json()["work"]["id"]
     # 未带 confirm → 400
     r = admin.delete(f"/api/admin/works/{wid}", headers=BEARER)
     assert r.status_code == 400
     assert r.json()["error"]["code"] == "confirm_required"
-    # confirm=true → 204，行与 work_tags 关联删除
+    # confirm=true → 204；管理列表（默认排除回收站）不再计入
     assert admin.delete(f"/api/admin/works/{wid}", params={"confirm": "true"},
                         headers=BEARER).status_code == 204
     assert admin.get("/api/admin/works", headers=BEARER).json()["stats"]["total"] == 0
+    # 软删除：行仍在且 deleted_at 已置，work_tags 关联保留（供恢复）
     with admin.app.state.session_factory() as s:
         from sqlalchemy import text
-        assert s.execute(text("SELECT COUNT(*) FROM work_tags")).scalar() == 0
-    # 再删 → 404
+        deleted_at = s.execute(
+            text("SELECT deleted_at FROM works WHERE id = :i"), {"i": wid}
+        ).scalar()
+        assert deleted_at
+        assert s.execute(text("SELECT COUNT(*) FROM work_tags")).scalar() == 1
+    # 已在回收站 → 再删 404
     assert admin.delete(f"/api/admin/works/{wid}", params={"confirm": "true"},
                         headers=BEARER).status_code == 404
 

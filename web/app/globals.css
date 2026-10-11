@@ -2813,3 +2813,107 @@ button {
   justify-content: center;
   margin-top: var(--sp-2);
 }
+
+/* ============================================================
+   Build-G 回收站：页脚入口 + /trash 列表
+   ============================================================ */
+.footer-trash {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-13);
+  color: var(--c-ink-700);
+  transition: color var(--dur-hover) var(--ease);
+}
+
+.footer-trash:hover { color: var(--c-primary-600); }
+
+.trash-hint {
+  font-size: var(--fs-14);
+  color: var(--c-ink-500);
+  margin-bottom: var(--sp-3);
+}
+
+.trash-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--sp-5);
+}
+
+.trash-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2);
+  background: var(--c-bg-surface);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-md);
+  box-shadow: var(--sh-1);
+}
+
+.trash-thumb {
+  flex: 0 0 auto;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  background: var(--c-bg-sunken);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.trash-thumb img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.trash-info {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.trash-title {
+  font-size: var(--fs-14);
+  font-weight: 500;
+  color: var(--c-ink-900);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trash-meta {
+  font-size: var(--fs-12);
+  color: var(--c-ink-300);
+}
+
+.trash-actions {
+  flex: 0 0 auto;
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.trash-more {
+  display: flex;
+  justify-content: center;
+  padding-block: var(--sp-4);
+}
+
+/* 窄屏：操作按钮换到第二行，保持可点面积 */
+@media (max-width: 560px) {
+  .trash-row { flex-wrap: wrap; }
+  .trash-info { flex-basis: calc(100% - 80px); }
+  .trash-actions {
+    flex-basis: 100%;
+    justify-content: flex-start;
+  }
+}

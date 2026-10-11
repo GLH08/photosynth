@@ -11,8 +11,10 @@ import type {
   SortOrder,
   StatsResponse,
   TagInfo,
+  TrashPage,
   ViewState,
   WorkDetailResponse,
+  WorkListItem,
   WorksPage,
   WorkType,
 } from "./types";
@@ -184,6 +186,29 @@ function readCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
   const m = document.cookie.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`));
   return m ? decodeURIComponent(m[1]) : null;
+}
+
+// ---------------------------------------------------------------- 回收站（Build-G，管理端）
+
+/** GET /api/admin/trash：仅已删除作品，deleted_at 倒序；total 供入口 badge 计数。 */
+export function getTrash(limit = 24, offset = 0): Promise<TrashPage> {
+  return clientGet<TrashPage>(`/api/admin/trash?limit=${limit}&offset=${offset}`);
+}
+
+/** POST /api/admin/works/{id}/restore：从回收站恢复（deleted_at 置 NULL）。 */
+export function restoreWork(id: string): Promise<{ work: WorkListItem } | null> {
+  return clientSend<{ work: WorkListItem }>(
+    "POST",
+    `/api/admin/works/${encodeURIComponent(id)}/restore`,
+  );
+}
+
+/** DELETE /api/admin/works/{id}/purge：彻底删除（物理删库，不可恢复）。 */
+export function purgeWork(id: string): Promise<null> {
+  return clientSend<null>(
+    "DELETE",
+    `/api/admin/works/${encodeURIComponent(id)}/purge`,
+  );
 }
 
 async function unwrap<T>(r: Response): Promise<T> {

@@ -3,8 +3,9 @@
 /**
  * 前台管理按钮（Build-E【2】：管理融进前台）：
  * - 编辑：Link → /works/[id]/edit（WorkForm 编辑态，PATCH）；
- * - 删除：两步确认（第一次变「确认删除?」Danger，4s 自动撤销；DELETE ?confirm=true），
- *   成功后 toast + 回调 onDeleted（列表页移除该卡 / 详情页回退）。
+ * - 删除（Build-G 语义）：按钮文案「移入回收站」，两步确认（第一次变「确认移入回收站?」
+ *   Danger，4s 自动撤销；DELETE ?confirm=true → 软删除），成功后 toast + 回调
+ *   onDeleted（列表页移除该卡 / 详情页回退）；作品可在 /trash 恢复或彻底删除。
  * 全站已登录保护下才可见；401 → 跳登录页。
  */
 import Link from "next/link";
@@ -61,7 +62,7 @@ export default function WorkManageButtons({
     setBusy(true);
     try {
       await clientSend("DELETE", `/api/admin/works/${id}?confirm=true`);
-      toast.push(`已删除「${title || id}」（外部存储文件保留）`, "success");
+      toast.push(`已移入回收站「${title || id}」，可在回收站恢复`, "success");
       if (onDeleted) onDeleted();
       else router.replace("/gallery");
       router.refresh();
@@ -93,9 +94,9 @@ export default function WorkManageButtons({
         className={`${btn}${confirming ? " btn-danger" : ""}`}
         disabled={busy}
         onClick={onDelete}
-        aria-label={confirming ? `确认删除作品 ${title || id}` : `删除作品 ${title || id}`}
+        aria-label={confirming ? `确认移入回收站 ${title || id}` : `移入回收站 ${title || id}`}
       >
-        {busy ? "删除中…" : confirming ? "确认删除?" : "删除"}
+        {busy ? "处理中…" : confirming ? "确认移入回收站?" : "移入回收站"}
       </button>
     </span>
   );

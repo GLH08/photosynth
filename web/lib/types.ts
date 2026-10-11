@@ -61,6 +61,8 @@ export interface WorkListItem {
   album: AlbumBrief | null;
   tags: TagBrief[];
   published_at: string | null;
+  /** Build-G：移入回收站的时间（仅管理端响应携带，公开列表恒为 undefined） */
+  deleted_at?: string | null;
 }
 
 export interface ReferenceImage {
@@ -125,6 +127,15 @@ export interface AdminAlbum extends AlbumInfo {
 /** GET /api/admin/tags 列表项 */
 export interface AdminTag extends TagInfo {
   id: string;
+}
+
+/** GET /api/admin/trash（Build-G 回收站：仅已删除作品，offset 分页，deleted_at 倒序） */
+export interface TrashPage {
+  items: WorkListItem[];
+  total: number;
+  limit: number;
+  offset: number;
+  has_more: boolean;
 }
 
 export function emptyFilters(): GalleryFilters {
