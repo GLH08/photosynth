@@ -9,6 +9,8 @@
  * - featured ★ 琥珀金角标；整卡可点（role="link"，Enter 打开）；文本区可配置隐藏；
  * - Build-H【1】右上角管理浮层内置快捷精选切换（★/☆）；
  * - Build-H【2】选择模式：卡片显示勾选框，点卡片切换选中；长按（触屏/鼠标）进入选择模式。
+ * - Build-I【1】管理浮层重做为统一毛玻璃胶囊按钮组（★/编辑/移入回收站）；
+ *   Build-I【2】选择模式左上角复选框 + 选中钴蓝描边高亮。
  */
 import { useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
 
@@ -197,10 +199,20 @@ export default function MasonryCard({
           </span>
         )}
 
-        {/* Build-H【2】选择模式勾选框 */}
+        {/* Build-H【2】/Build-I【2】选择模式勾选框：空心圆 → 打勾 */}
         {selectMode && (
           <span className={`card-select-box${selected ? " on" : ""}`} aria-hidden="true">
-            {selected ? "✓" : ""}
+            {selected && (
+              <svg viewBox="0 0 16 16" fill="none">
+                <path
+                  d="M3.5 8.5 6.5 11.3 12.5 4.8"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            )}
           </span>
         )}
 

@@ -877,33 +877,220 @@ button {
   }
 }
 
-/* 前台管理浮层（Build-E【2】）：卡片 hover 出编辑/删除；触控端常显（无 hover 能力时不隐藏） */
+/* 前台管理浮层（Build-E【2】→ Build-I【1】重做）：
+   卡片右上角三个按钮（精选★ / 编辑 / 移入回收站）统一为一枚毛玻璃胶囊按钮组；
+   桌面 hover / 聚焦浮现，触控端常驻（小尺寸）；胶囊内按钮等尺寸协调。 */
 .card-manage {
   position: absolute;
   top: var(--sp-2);
   right: var(--sp-2);
-  display: none;
   z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--r-md);
+  background: rgba(255, 255, 255, 0.68);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow: var(--sh-1);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  backdrop-filter: blur(10px) saturate(140%);
+  opacity: 0;
+  transform: translateY(-2px);
+  pointer-events: none;
+  transition:
+    opacity var(--dur-hover) var(--ease),
+    transform var(--dur-hover) var(--ease);
 }
 
 @media (hover: hover) {
-  .card-work:hover .card-manage { display: block; }
+  .card-work:hover .card-manage,
+  .card-work:focus-within .card-manage {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
 }
 
+/* 触控端：胶囊常驻（无 hover 能力），整体收小一档 */
 @media (hover: none) {
-  .card-manage { display: block; }
+  .card-manage {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+    padding: 2px;
+  }
 }
 
 .card-manage .manage-actions {
-  display: flex;
-  gap: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
 }
 
-.card-manage .manage-actions .btn {
-  background: rgba(255, 255, 255, 0.92);
+/* 胶囊内统一按钮：30px 方钮、--r-md 派生圆角、透明底（底色即胶囊毛玻璃） */
+.card-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: calc(var(--r-md) - 4px);
+  background: transparent;
+  color: var(--c-ink-700);
+  font-size: var(--fs-15);
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background-color var(--dur-hover) var(--ease),
+    color var(--dur-hover) var(--ease),
+    border-color var(--dur-hover) var(--ease);
+}
+
+.card-pill-btn:hover { background: rgba(31, 29, 26, 0.08); color: var(--c-ink-900); }
+.card-pill-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.card-pill-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.card-pill-btn svg { width: 16px; height: 16px; display: block; }
+
+/* 精选★：未精选 = 半透明描边 ☆；精选 = 琥珀金实心 ★（--c-accent-500） */
+.card-pill-feature {
+  border: 1px solid rgba(31, 29, 26, 0.16);
+  background: rgba(255, 255, 255, 0.4);
+  color: var(--c-ink-500);
+}
+
+.card-pill-feature:hover {
+  background: var(--c-accent-100);
+  border-color: transparent;
+  color: var(--c-accent-700);
+}
+
+.card-pill-feature.is-featured {
+  background: var(--c-accent-500);
+  border-color: var(--c-accent-500);
+  color: var(--c-inverse);
+}
+
+.card-pill-feature.is-featured:hover {
+  background: var(--c-accent-700);
+  border-color: var(--c-accent-700);
+  color: var(--c-inverse);
+}
+
+/* 删除确认态：危险红实心 */
+.card-pill-danger.is-confirming {
+  background: var(--c-danger);
+  color: var(--c-inverse);
+}
+
+.card-pill-danger.is-confirming:hover {
+  background: #a93226;
+  color: var(--c-inverse);
+}
+
+@media (hover: none) {
+  .card-pill-btn { width: 28px; height: 28px; }
+  .card-pill-btn svg { width: 15px; height: 15px; }
+}
+
+/* ---------- Build-I【2】批量选择视觉反馈 ---------- */
+/* 卡片左上角复选框：空心圆 → 钴蓝实心打勾 */
+.card-select-box {
+  position: absolute;
+  top: var(--sp-2);
+  left: var(--sp-2);
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--r-full);
+  background: rgba(255, 255, 255, 0.82);
+  border: 1.5px solid var(--c-line-strong);
   box-shadow: var(--sh-1);
+  color: var(--c-inverse);
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
+  transition:
+    background-color var(--dur-hover) var(--ease),
+    border-color var(--dur-hover) var(--ease),
+    transform var(--dur-hover) var(--ease);
+}
+
+.card-select-box svg { width: 15px; height: 15px; display: block; }
+
+.card-select-box.on {
+  background: var(--c-primary-500);
+  border-color: var(--c-primary-500);
+}
+
+/* 选中卡片：钴蓝描边高亮（与金色★不冲突；hover 也保持） */
+.card-work.card-selected,
+.card-work.card-selected:hover {
+  border-color: var(--c-primary-500);
+  box-shadow: 0 0 0 2px var(--c-primary-500), var(--sh-2);
+}
+
+/* 选择模式下精选角标让位到左下，避免与左上复选框重叠 */
+.card-work.select-mode .card-featured-badge {
+  top: auto;
+  bottom: var(--sp-2);
+}
+
+/* ---------- Build-I【2】批量操作工具条（Build-H 组件引用但样式缺失，此处补齐） ---------- */
+.batch-bar {
+  position: sticky;
+  top: calc(var(--header-h) + var(--sp-2));
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-block: var(--sp-3) var(--sp-4);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--c-primary-100);
+  border-radius: var(--r-md);
+  background: rgba(255, 255, 255, 0.86);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  backdrop-filter: blur(10px) saturate(140%);
+  box-shadow: var(--sh-2);
+}
+
+.batch-bar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.batch-count {
+  margin-right: auto;
+  font-size: var(--fs-14);
+  font-weight: 500;
+  color: var(--c-ink-900);
+  font-variant-numeric: tabular-nums;
+}
+
+.batch-bar-actions {
+  padding-top: var(--sp-2);
+  border-top: 1px solid var(--c-line);
+}
+
+.batch-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  padding-top: var(--sp-2);
+  border-top: 1px dashed var(--c-line);
+}
+
+.batch-panel .form-input,
+.batch-panel .form-select {
+  flex: 1 1 200px;
 }
 
 /* 详情操作区旁的管理按钮行 */

@@ -6,6 +6,7 @@
  * - 成功后 toast + 通过 onToggled 回调让上层即时更新（★ 高亮）；
  * - 401 → 跳登录页；与 WorkManageButtons 同一处（卡片右上角管理浮层 / 详情操作区）；
  * - compact：卡片浮层内小按钮（触控端 card-manage 常显，见 CSS，移动端可用）。
+ * - Build-I【1】：compact 态用 card-pill-btn/card-pill-feature 统一胶囊按钮（★ 实心 / ☆ 描边）。
  */
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type MouseEvent } from "react";
@@ -62,7 +63,8 @@ export default function QuickFeatureButton({
     }
   };
 
-  const btn = compact ? "btn btn-sm" : "btn btn-secondary btn-sm";
+  // Build-I【1】：卡片浮层内用统一胶囊按钮（card-pill-btn），详情区仍用常规按钮
+  const btn = compact ? "card-pill-btn card-pill-feature" : "btn btn-secondary btn-sm";
 
   return (
     <button

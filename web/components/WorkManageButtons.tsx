@@ -7,6 +7,8 @@
  *   Danger，4s 自动撤销；DELETE ?confirm=true → 软删除），成功后 toast + 回调
  *   onDeleted（列表页移除该卡 / 详情页回退）；作品可在 /trash 恢复或彻底删除。
  * 全站已登录保护下才可见；401 → 跳登录页。
+ * - Build-I【1】：compact 态改为胶囊内图标按钮（编辑=铅笔 / 移入回收站=垃圾桶 / 确认=勾），
+ *   与 QuickFeatureButton 的 ★ 统一尺寸；非 compact（详情区）仍为文字按钮。
  */
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -77,7 +79,61 @@ export default function WorkManageButtons({
     }
   };
 
-  const btn = compact ? "btn btn-sm" : "btn btn-secondary btn-sm";
+  const btn = compact ? "card-pill-btn" : "btn btn-secondary btn-sm";
+
+  // Build-I【1】紧凑态（卡片浮层）：图标按钮（铅笔 / 垃圾桶 / 确认勾），与精选★统一胶囊尺寸
+  if (compact) {
+    return (
+      <span className="manage-actions" onClick={stop} onKeyDown={(e) => e.stopPropagation()}>
+        <Link
+          href={`/works/${id}/edit`}
+          className="card-pill-btn"
+          onClick={stop}
+          title="编辑"
+          aria-label={`编辑作品 ${title || id}`}
+        >
+          <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path
+              d="M13.2 3.3a1.9 1.9 0 0 1 2.7 2.7l-8.2 8.2-3.4.7.7-3.4 8.2-8.2Z"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </Link>
+        <button
+          type="button"
+          className={`card-pill-btn card-pill-danger${confirming ? " is-confirming" : ""}`}
+          disabled={busy}
+          onClick={onDelete}
+          title={confirming ? "确认移入回收站" : "移入回收站"}
+          aria-label={confirming ? `确认移入回收站 ${title || id}` : `移入回收站 ${title || id}`}
+        >
+          {confirming ? (
+            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <path
+                d="M4.5 10.5 8 14l7.5-8"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <path
+                d="M4 6h12M8 6V4.6A1 1 0 0 1 9 3.6h2a1 1 0 0 1 1 1V6m-6 0 .7 9a1.5 1.5 0 0 0 1.5 1.4h3.6a1.5 1.5 0 0 0 1.5-1.4L15 6M8.5 9v5M11.5 9v5"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          )}
+        </button>
+      </span>
+    );
+  }
 
   return (
     <span className="manage-actions" onClick={stop} onKeyDown={(e) => e.stopPropagation()}>
