@@ -104,7 +104,9 @@ export default async function WorkPage({ params }: Props) {
     <div className="container">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd(work)) }}
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(jsonLd(work)).replace(/</g, "\\u003c"),
+        }}
       />
 
       <div className="work-back-row">

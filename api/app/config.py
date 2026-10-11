@@ -41,6 +41,8 @@ def validate_settings(s: Settings) -> None:
         raise RuntimeError(
             "ADMIN_TOKEN 未设置或为示例值，拒绝启动。请在 .env 中配置强随机令牌。"
         )
+    if len(s.admin_token) < 16:
+        raise RuntimeError("ADMIN_TOKEN 必须 ≥16 字符（建议 32+ 位随机值），拒绝启动。")
     if len(s.session_secret) < 32:
         raise RuntimeError("SESSION_SECRET 必须 ≥32 字符，拒绝启动。")
 

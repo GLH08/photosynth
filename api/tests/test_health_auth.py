@@ -67,4 +67,4 @@ def test_empty_admin_token_refuses_startup():
     with pytest.raises(RuntimeError):
         validate_settings(Settings(admin_token="t0k", session_secret="too-short"))
     # 合法配置不抛
-    validate_settings(Settings(admin_token="strong-token", session_secret="x" * 32))
+    validate_settings(Settings(admin_token="strong-token-12345678", session_secret="x" * 32))
