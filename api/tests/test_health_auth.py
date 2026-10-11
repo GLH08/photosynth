@@ -68,3 +68,30 @@ def test_empty_admin_token_refuses_startup():
         validate_settings(Settings(admin_token="t0k", session_secret="too-short"))
     # 合法配置不抛
     validate_settings(Settings(admin_token="strong-token-12345678", session_secret="x" * 32))
+
+
+def test_csrf_blocks_cookie_write_without_token(client):
+    """CSRF：Cookie 登录后，不带 X-CSRF-Token 头的写操作应被 403 拦截。"""
+    from .conftest import ADMIN_TOKEN
+    r = client.post("/api/admin/login", json={"token": ADMIN_TOKEN})
+    assert r.status_code == 200
+    # 故意去掉 fixture 自动加的 header，模拟跨站伪造请求
+    client.headers.pop("x-csrf-token", None)
+    r = client.post("/api/admin/albums", json={"name": "csrf-test"})
+    assert r.status_code == 403
+    assert r.json()["error"]["code"] == "csrf_failed"
+
+
+def test_csrf_allows_write_with_matching_token(client):
+    """CSRF：带正确 X-CSRF-Token 头的写操作应放行。"""
+    from .conftest import ADMIN_TOKEN
+    r = client.post("/api/admin/login", json={"token": ADMIN_TOKEN})
+    assert r.status_code == 200
+    csrf = client.cookies.get("gal_csrf")
+    assert csrf
+    r = client.post(
+        "/api/admin/albums",
+        json={"name": "csrf-ok", "slug": "csrf-ok"},
+        headers={"x-csrf-token": csrf},
+    )
+    assert r.status_code in (200, 201), r.text

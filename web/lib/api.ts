@@ -158,22 +158,32 @@ export async function clientGet<T>(path: string): Promise<T> {
   return unwrap<T>(r);
 }
 
-/** 管理端写操作（POST/PATCH/DELETE）：204 → null；非 2xx → ApiClientError */
+/** 管理端写操作（POST/PATCH/DELETE）：204 → null；非 2xx → ApiClientError。
+ * 自动携带 X-CSRF-Token（从 gal_csrf Cookie 读，Double-Submit 防 CSRF）。 */
 export async function clientSend<T>(
   method: "POST" | "PATCH" | "PUT" | "DELETE",
   path: string,
   body?: unknown,
 ): Promise<T | null> {
+  const csrf = readCookie("gal_csrf");
   const r = await fetch(path, {
     method,
     headers: {
       accept: "application/json",
       ...(body !== undefined ? { "content-type": "application/json" } : {}),
+      ...(csrf ? { "x-csrf-token": csrf } : {}),
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   if (r.status === 204) return null;
   return unwrap<T>(r);
+}
+
+/** 读指定 Cookie（CSRF token 用；HttpOnly 的读不到属正常）。 */
+function readCookie(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  const m = document.cookie.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`));
+  return m ? decodeURIComponent(m[1]) : null;
 }
 
 async function unwrap<T>(r: Response): Promise<T> {

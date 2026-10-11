@@ -62,9 +62,12 @@ def client() -> TestClient:
 
 @pytest.fixture()
 def admin(client: TestClient) -> TestClient:
-    """已完成 Cookie 登录的客户端。"""
+    """已完成 Cookie 登录的客户端（含 CSRF header，模拟前端 clientSend 行为）。"""
     r = client.post("/api/admin/login", json={"token": ADMIN_TOKEN})
     assert r.status_code == 200, r.text
+    csrf = client.cookies.get("gal_csrf")
+    assert csrf, "登录应下发 gal_csrf Cookie"
+    client.headers.update({"x-csrf-token": csrf})
     return client
 
 
