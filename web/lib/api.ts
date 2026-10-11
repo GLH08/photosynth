@@ -5,15 +5,20 @@
  */
 import type {
   AlbumInfo,
+  BrowseMode,
   GalleryFilters,
   RatioBucket,
   SortOrder,
   StatsResponse,
   TagInfo,
+  ViewState,
   WorkDetailResponse,
   WorksPage,
   WorkType,
 } from "./types";
+
+/** 每页作品数（Build-F【2】：48 = 后端 limit 上限，一次请求铺满一页，减少往返） */
+export const PAGE_SIZE = 48;
 
 export function backendOrigin(): string {
   return (process.env.BACKEND_ORIGIN ?? "http://127.0.0.1:8000").replace(/\/+$/, "");
@@ -23,6 +28,8 @@ export interface WorksQuery extends GalleryFilters {
   type?: WorkType;
   limit?: number;
   cursor?: string | null;
+  /** Build-F【1】分页模式：1-based 页码（offset 分页，支持页码跳转） */
+  page?: number;
 }
 
 export function buildWorksQuery(p: WorksQuery): string {
@@ -36,6 +43,7 @@ export function buildWorksQuery(p: WorksQuery): string {
   if (p.sort && p.sort !== "latest") sp.set("sort", p.sort);
   if (p.limit) sp.set("limit", String(p.limit));
   if (p.cursor) sp.set("cursor", p.cursor);
+  if (p.page && p.page > 1) sp.set("page", String(p.page));
   return sp.toString();
 }
 
@@ -51,9 +59,19 @@ export function buildDetailQuery(f: GalleryFilters): string {
   return sp.toString();
 }
 
-/** 列表页 URL（筛选状态可分享；basePath = /gallery、/videos、/albums/[slug]…） */
-export function listUrlFromFilters(basePath: string, f: GalleryFilters): string {
-  const qs = buildWorksQuery(f);
+/** 列表页 URL（筛选状态可分享；basePath = /gallery、/videos、/albums/[slug]…）
+ *  Build-F【1】：浏览模式与页码一并写入 query（mode 恒显式，刷新不丢失）。 */
+export function listUrlFromFilters(
+  basePath: string,
+  f: GalleryFilters,
+  view?: ViewState,
+): string {
+  const sp = new URLSearchParams(buildWorksQuery(f));
+  if (view) {
+    sp.set("mode", view.mode);
+    if (view.mode === "paged" && view.page > 1) sp.set("page", String(view.page));
+  }
+  const qs = sp.toString();
   return qs ? `${basePath}?${qs}` : basePath;
 }
 
@@ -87,7 +105,7 @@ export interface AlbumPageResponse extends WorksPage {
 
 export function getAlbumPage(
   slug: string,
-  f: GalleryFilters = {},
+  f: WorksQuery = {},
 ): Promise<AlbumPageResponse | null> {
   const qs = buildWorksQuery(f);
   return serverGet<AlbumPageResponse>(
@@ -178,11 +196,21 @@ async function unwrap<T>(r: Response): Promise<T> {
 
 // ---------------------------------------------------------------- 解析与格式化
 
+const RATIO_VALUES: RatioBucket[] = [
+  "portrait", "square", "landscape",
+  "16:9", "9:16", "1:1", "4:3", "3:4", "3:2", "2:3", "4:5",
+];
+
+const SORT_VALUES: SortOrder[] = ["latest", "oldest", "name"];
+
+function firstParam(v: string | string[] | undefined): string | undefined {
+  return Array.isArray(v) ? v[0] : v;
+}
+
 export function parseFiltersFromSearchParams(
   sp: Record<string, string | string[] | undefined>,
 ): GalleryFilters {
-  const first = (v: string | string[] | undefined): string | undefined =>
-    Array.isArray(v) ? v[0] : v;
+  const first = firstParam;
   const tags = Array.isArray(sp.tag)
     ? sp.tag.filter(Boolean)
     : sp.tag
@@ -190,11 +218,6 @@ export function parseFiltersFromSearchParams(
       : [];
   const ratioRaw = first(sp.ratio);
   const sortRaw = first(sp.sort);
-  // Build-E【4】：11 值超集（8 真实比例 + 3 旧桶兼容，老分享链接仍可用）
-  const RATIO_VALUES: RatioBucket[] = [
-    "portrait", "square", "landscape",
-    "16:9", "9:16", "1:1", "4:3", "3:4", "3:2", "2:3", "4:5",
-  ];
   return {
     ratio: RATIO_VALUES.includes(ratioRaw as RatioBucket)
       ? (ratioRaw as RatioBucket)
@@ -203,8 +226,23 @@ export function parseFiltersFromSearchParams(
     tags,
     featured: first(sp.featured) === "1" || first(sp.featured) === "true" || undefined,
     q: first(sp.q) || undefined,
-    sort: sortRaw === "oldest" ? ("oldest" as SortOrder) : undefined,
+    sort: SORT_VALUES.includes(sortRaw as SortOrder)
+      ? (sortRaw as SortOrder)
+      : undefined,
   };
+}
+
+/** Build-F【1】：浏览模式 / 页码（URL query 同步；albumDefault 供专辑页默认分页模式） */
+export function parseViewFromSearchParams(
+  sp: Record<string, string | string[] | undefined>,
+  defaultMode: BrowseMode = "scroll",
+): ViewState {
+  const rawMode = firstParam(sp.mode);
+  const mode: BrowseMode =
+    rawMode === "paged" || rawMode === "scroll" ? rawMode : defaultMode;
+  const rawPage = Number(firstParam(sp.page) ?? "1");
+  const page = Number.isFinite(rawPage) && rawPage >= 1 ? Math.floor(rawPage) : 1;
+  return { mode, page: mode === "paged" ? page : 1 };
 }
 
 /** mm:ss / 超一小时 h:mm:ss（DESIGN 5.7 时长角标） */

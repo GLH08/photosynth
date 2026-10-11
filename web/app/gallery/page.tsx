@@ -6,7 +6,14 @@
 import type { Metadata } from "next";
 
 import GalleryClient from "@/components/GalleryClient";
-import { getAlbums, getTags, getWorksPage, parseFiltersFromSearchParams } from "@/lib/api";
+import {
+  PAGE_SIZE,
+  getAlbums,
+  getTags,
+  getWorksPage,
+  parseFiltersFromSearchParams,
+  parseViewFromSearchParams,
+} from "@/lib/api";
 
 export const metadata: Metadata = {
   title: "图片画廊",
@@ -20,10 +27,16 @@ interface Props {
 export default async function GalleryPage({ searchParams }: Props) {
   const sp = await searchParams;
   const filters = parseFiltersFromSearchParams(sp);
+  const view = parseViewFromSearchParams(sp);
 
   // 后端不可达时全部静默降级为 null/[]（客户端会补拉），构建期不依赖网络
   const [works, albums, tags] = await Promise.all([
-    getWorksPage({ ...filters, type: "image", limit: 24 }),
+    getWorksPage({
+      ...filters,
+      type: "image",
+      limit: PAGE_SIZE,
+      page: view.mode === "paged" ? view.page : undefined,
+    }),
     getAlbums(),
     getTags(),
   ]);
@@ -40,6 +53,7 @@ export default async function GalleryPage({ searchParams }: Props) {
       <GalleryClient
         initialData={works}
         initialFilters={filters}
+        initialView={view}
         albums={albums}
         tags={tags}
         mediaType="image"

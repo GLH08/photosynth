@@ -7,7 +7,14 @@
 import type { Metadata } from "next";
 
 import GalleryClient from "@/components/GalleryClient";
-import { getAlbums, getTags, getWorksPage, parseFiltersFromSearchParams } from "@/lib/api";
+import {
+  PAGE_SIZE,
+  getAlbums,
+  getTags,
+  getWorksPage,
+  parseFiltersFromSearchParams,
+  parseViewFromSearchParams,
+} from "@/lib/api";
 
 export const metadata: Metadata = {
   title: "视频画廊",
@@ -21,9 +28,15 @@ interface Props {
 export default async function VideosPage({ searchParams }: Props) {
   const sp = await searchParams;
   const filters = parseFiltersFromSearchParams(sp);
+  const view = parseViewFromSearchParams(sp);
 
   const [works, albums, tags] = await Promise.all([
-    getWorksPage({ ...filters, type: "video", limit: 24 }),
+    getWorksPage({
+      ...filters,
+      type: "video",
+      limit: PAGE_SIZE,
+      page: view.mode === "paged" ? view.page : undefined,
+    }),
     getAlbums(),
     getTags(),
   ]);
@@ -40,6 +53,7 @@ export default async function VideosPage({ searchParams }: Props) {
       <GalleryClient
         initialData={works}
         initialFilters={filters}
+        initialView={view}
         albums={albums}
         tags={tags}
         basePath="/videos"

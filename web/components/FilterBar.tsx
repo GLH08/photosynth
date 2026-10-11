@@ -1,12 +1,13 @@
 "use client";
 
 /**
- * FilterBar（DESIGN 5.8，Build-E【4】）：筛选 chips——比例[全部|16:9|9:16|1:1|4:3|3:4|3:2|2:3|4:5]、
- * 标签（多选 AND）、仅精选 ★；组名前置 13px ink-500；移动端横向滚动（边缘渐隐）。
+ * FilterBar（DESIGN 5.8，Build-E【4】/ Build-F【1】）：筛选 chips——比例[全部|16:9|9:16|1:1|4:3|3:4|3:2|2:3|4:5]、
+ * 标签（多选 AND）、仅精选 ★；Build-F 新增「排序」组（最新/最早/按名称）与
+ * 「浏览」组（连续滚动/分页）；组名前置 13px ink-500；移动端横向滚动（边缘渐隐）。
  * 单选组互斥、标签组多选；变更经 onChange 上报（URL query 同步由页面层负责）；
  * 结果数实时更新（「共 N 幅」ink-300）；有选中时出现「清除全部筛选」Ghost 按钮。
  */
-import type { AlbumInfo, GalleryFilters, RatioBucket, TagInfo } from "@/lib/types";
+import type { AlbumInfo, BrowseMode, GalleryFilters, RatioBucket, SortOrder, TagInfo } from "@/lib/types";
 import { filtersActive } from "@/lib/types";
 
 interface Props {
@@ -20,7 +21,21 @@ interface Props {
   /** 标签详情页：当前标签已锁定，隐藏标签组 */
   hideTags?: boolean;
   onChange: (next: GalleryFilters) => void;
+  /** Build-F【1】浏览模式（scroll 连续滚动 / paged 分页） */
+  mode: BrowseMode;
+  onModeChange: (mode: BrowseMode) => void;
 }
+
+const SORT_OPTIONS: { value: SortOrder; label: string }[] = [
+  { value: "latest", label: "最新" },
+  { value: "oldest", label: "最早" },
+  { value: "name", label: "按名称" },
+];
+
+const MODE_OPTIONS: { value: BrowseMode; label: string }[] = [
+  { value: "scroll", label: "连续滚动" },
+  { value: "paged", label: "分页" },
+];
 
 const RATIO_OPTIONS: { value?: RatioBucket; label: string }[] = [
   { value: undefined, label: "全部" },
@@ -43,6 +58,8 @@ export default function FilterBar({
   hideAlbum = false,
   hideTags = false,
   onChange,
+  mode,
+  onModeChange,
 }: Props) {
   const patch = (part: Partial<GalleryFilters>) => onChange({ ...filters, ...part });
 
@@ -69,6 +86,40 @@ export default function FilterBar({
               className="chip"
               aria-pressed={filters.ratio === opt.value}
               onClick={() => patch({ ratio: opt.value })}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="filter-group">
+        <span className="filter-label">排序</span>
+        <div className="chips-row">
+          {SORT_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              className="chip"
+              aria-pressed={(filters.sort ?? "latest") === opt.value}
+              onClick={() => patch({ sort: opt.value })}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="filter-group">
+        <span className="filter-label">浏览</span>
+        <div className="chips-row">
+          {MODE_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              className="chip"
+              aria-pressed={mode === opt.value}
+              onClick={() => onModeChange(opt.value)}
             >
               {opt.label}
             </button>

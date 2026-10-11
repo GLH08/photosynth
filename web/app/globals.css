@@ -700,6 +700,72 @@ button {
   margin-bottom: var(--masonry-gap);
 }
 
+/* Build-F【1】瀑布流新实现：JS 最短列分配（列数由容器宽度断点决定）
+   flex 列等宽、逐列纵向排列，追加卡片不重排已有卡片、右侧不留空洞 */
+.masonry-grid {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--masonry-gap);
+}
+
+.masonry-col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--masonry-gap);
+}
+
+/* 分页模式页码条（Build-F【1】）：前后翻页 + 页码 + 省略号 */
+.pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  padding-block: var(--sp-6);
+}
+
+.pagination .page-btn {
+  min-width: 36px;
+  height: 36px;
+  padding-inline: 10px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--c-line);
+  background: var(--c-bg-surface);
+  color: var(--c-ink-700);
+  font-size: var(--fs-13);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background-color var(--dur-hover) var(--ease), border-color var(--dur-hover) var(--ease);
+}
+
+.pagination .page-btn:hover:not(:disabled) { background: var(--c-bg-sunken); }
+
+.pagination .page-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.pagination .page-btn[aria-current="page"] {
+  background: var(--c-primary-50);
+  border-color: var(--c-primary-600);
+  color: var(--c-primary-600);
+  font-weight: 600;
+}
+
+.pagination .page-gap {
+  color: var(--c-ink-300);
+  padding-inline: 2px;
+}
+
+.pagination .page-info {
+  margin-left: var(--sp-3);
+  font-size: var(--fs-13);
+  color: var(--c-ink-500);
+  font-variant-numeric: tabular-nums;
+}
+
 /* 追加卡片淡入 + translateY(8px→0)，逐张 30ms 错峰（5.10，delay 由内联给出） */
 .card-enter {
   animation: card-in var(--dur-card-in) var(--ease) both;

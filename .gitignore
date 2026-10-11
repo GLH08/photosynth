@@ -13,3 +13,6 @@ web/node_modules/
 web/.next/
 web/next-env.d.ts
 web/*.tsbuildinfo
+
+# 自托管字体（prebuild 自动下载，不提交二进制）
+web/fonts/*.woff2

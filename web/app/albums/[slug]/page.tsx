@@ -1,14 +1,23 @@
 /**
  * /albums/[slug] 专辑详情（DESIGN 4.3-⑤，M5）：
  * 专辑头部（名称/描述/计数/kind 徽章）+ 按 kind 复用 MasonryGrid（image/mixed）
- * 或视频网格（video）；筛选沿用 FilterBar（专辑锁定，比例/标签/精选可调）；无限滚动。
+ * 或视频网格（video）；筛选沿用 FilterBar（专辑锁定，比例/标签/精选可调）。
+ * Build-F【1】：专辑作品动辄上千张，默认「分页模式」（每页 48 张，URL 可跳页），
+ * 可切换为「连续滚动」；模式/页码/排序均入 URL query。
  */
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import GalleryClient from "@/components/GalleryClient";
-import { getAlbumPage, getStats, getTags, parseFiltersFromSearchParams } from "@/lib/api";
+import {
+  PAGE_SIZE,
+  getAlbumPage,
+  getStats,
+  getTags,
+  parseFiltersFromSearchParams,
+  parseViewFromSearchParams,
+} from "@/lib/api";
 import type { AlbumKind } from "@/lib/types";
 
 export const revalidate = 60;
@@ -24,6 +33,9 @@ const KIND_LABEL: Record<AlbumKind, string> = {
   mixed: "图文混合",
 };
 
+/** 专辑页默认分页模式（1000+ 张不逐个无限加载） */
+const ALBUM_DEFAULT_MODE = "paged" as const;
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const data = await getAlbumPage(slug, {});
@@ -38,8 +50,16 @@ export default async function AlbumPage({ params, searchParams }: Props) {
   const { slug } = await params;
   const sp = await searchParams;
   const filters = parseFiltersFromSearchParams(sp);
+  const view = parseViewFromSearchParams(sp, ALBUM_DEFAULT_MODE);
 
-  const [data, tags] = await Promise.all([getAlbumPage(slug, filters), getTags()]);
+  const [data, tags] = await Promise.all([
+    getAlbumPage(slug, {
+      ...filters,
+      limit: PAGE_SIZE,
+      page: view.mode === "paged" ? view.page : undefined,
+    }),
+    getTags(),
+  ]);
 
   if (!data) {
     // 后端可达 → 专辑确实不存在 → 404；后端不可达 → 降级壳（客户端补拉，失败出重试态）
@@ -54,6 +74,8 @@ export default async function AlbumPage({ params, searchParams }: Props) {
         <GalleryClient
           initialData={null}
           initialFilters={filters}
+          initialView={view}
+          defaultMode={ALBUM_DEFAULT_MODE}
           albums={[]}
           tags={tags}
           basePath={`/albums/${slug}`}
@@ -88,6 +110,8 @@ export default async function AlbumPage({ params, searchParams }: Props) {
       <GalleryClient
         initialData={data}
         initialFilters={filters}
+        initialView={view}
+        defaultMode={ALBUM_DEFAULT_MODE}
         albums={[]}
         tags={tags}
         basePath={`/albums/${slug}`}

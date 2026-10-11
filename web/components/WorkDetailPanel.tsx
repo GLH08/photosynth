@@ -24,6 +24,12 @@ interface Props {
   manage?: boolean;
   /** 删除成功后回调（容器负责关弹窗/回退） */
   onDeleted?: (id: string) => void;
+  /**
+   * Build-F【3】点击专辑信息卡的行为。弹窗内传入（收起覆盖层 + 跳专辑页，
+   * 避免 /works/[id] 的 pushState 与 App Router 状态不同步导致 Link 失效）；
+   * 独立详情页不传 → 走常规 Link 客户端导航。
+   */
+  onAlbumClick?: (slug: string) => void;
 }
 
 function KvTable({ rows }: { rows: [string, ReactNode][] }) {
@@ -43,7 +49,14 @@ function KvTable({ rows }: { rows: [string, ReactNode][] }) {
   );
 }
 
-export default function WorkDetailPanel({ work, previewUrl, onPreviewRef, manage = false, onDeleted }: Props) {
+export default function WorkDetailPanel({
+  work,
+  previewUrl,
+  onPreviewRef,
+  manage = false,
+  onDeleted,
+  onAlbumClick,
+}: Props) {
   const toast = useToast();
   const [manualCopy, setManualCopy] = useState(false);
   const [failedRefs, setFailedRefs] = useState<Set<number>>(new Set());
@@ -193,19 +206,20 @@ export default function WorkDetailPanel({ work, previewUrl, onPreviewRef, manage
       {/* 5. 模型/参数 kv 表 */}
       <KvTable rows={kvRows} />
 
-      {/* 6. 操作区 */}
+      {/* 6. 操作区：下载走同源 /api/media/{id}?download=1（服务端转发外部直链 +
+          Content-Disposition，跨域直链 a[download] 不生效，Build-F【3】）；
+          新窗口打开仍是原始直链新标签页（两者语义不同） */}
       <section aria-label="操作">
         <div className="detail-actions">
+          <a className="btn btn-primary" href={`/api/media/${work.id}?download=1`} download>
+            下载原文件
+          </a>
           <a
-            className="btn btn-primary"
+            className="btn btn-secondary"
             href={work.media_url}
-            download
             target="_blank"
             rel="noreferrer noopener"
           >
-            下载原文件
-          </a>
-          <a className="btn btn-secondary" href={work.media_url} target="_blank" rel="noreferrer noopener">
             新窗口打开 ↗
           </a>
         </div>
@@ -223,18 +237,37 @@ export default function WorkDetailPanel({ work, previewUrl, onPreviewRef, manage
       {/* 7. 专辑链接卡 + 标签 chips */}
       {(work.album || work.tags.length > 0) && (
         <section aria-label="专辑与标签" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {work.album && (
-            <Link href={`/albums/${work.album.slug}`} className="album-link-card">
-              <span>
-                <span className="album-link-name">{work.album.name}</span>
-                <br />
-                <span className="album-link-kind">专辑</span>
-              </span>
-              <span aria-hidden="true" style={{ color: "var(--c-ink-300)" }}>
-                →
-              </span>
-            </Link>
-          )}
+          {work.album &&
+            (onAlbumClick ? (
+              <a
+                className="album-link-card"
+                href={`/albums/${work.album.slug}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  onAlbumClick(work.album!.slug);
+                }}
+              >
+                <span>
+                  <span className="album-link-name">{work.album.name}</span>
+                  <br />
+                  <span className="album-link-kind">专辑 · 点击进入</span>
+                </span>
+                <span aria-hidden="true" style={{ color: "var(--c-ink-300)" }}>
+                  →
+                </span>
+              </a>
+            ) : (
+              <Link href={`/albums/${work.album.slug}`} className="album-link-card">
+                <span>
+                  <span className="album-link-name">{work.album.name}</span>
+                  <br />
+                  <span className="album-link-kind">专辑</span>
+                </span>
+                <span aria-hidden="true" style={{ color: "var(--c-ink-300)" }}>
+                  →
+                </span>
+              </Link>
+            ))}
           {work.tags.length > 0 && (
             <div className="tag-chips">
               {work.tags.map((t) => (

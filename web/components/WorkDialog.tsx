@@ -31,9 +31,11 @@ interface Props {
   onClose: () => void;
   /** 弹窗内删除成功后回调（页面层移除该卡） */
   onDeleted?: (id: string) => void;
+  /** Build-F【3】点专辑信息卡 → 跳转专辑页（页面层负责收起覆盖层 + 导航） */
+  onAlbumClick?: (slug: string) => void;
 }
 
-export default function WorkDialog({ initialId, filters, onClose, onDeleted }: Props) {
+export default function WorkDialog({ initialId, filters, onClose, onDeleted, onAlbumClick }: Props) {
   const [currentId, setCurrentId] = useState(initialId);
   const [data, setData] = useState<WorkDetailResponse | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -231,6 +233,7 @@ export default function WorkDialog({ initialId, filters, onClose, onDeleted }: P
               previewUrl={previewUrl}
               onPreviewRef={setPreviewUrl}
               manage
+              onAlbumClick={onAlbumClick}
               onDeleted={(id) => {
                 onDeleted?.(id);
                 onClose();

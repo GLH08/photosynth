@@ -196,6 +196,195 @@ def test_sort_oldest_reverses(client, db):
     assert [it["id"] for it in p2["items"]] == ["wk_test003"]
 
 
+# ---------------------------------------------------------------- Build-F【1】名称自然排序
+
+
+def test_sort_name_is_natural_order(client, db):
+    """自然排序：hy-1 < hy-2 < … < hy-10（不是字典序 hy-1 < hy-10 < hy-2）。"""
+    titles = [
+        "hy-1", "hy-2", "hy-10", "hy-11", "hy-100", "hy-3", "hy-20", "hy-9",
+        "hy-3b", "hy-03", "无题作品", "另一个",
+    ]
+    for i, t in enumerate(titles, start=1):
+        mk_work(db, i, title=t)
+
+    got = [it["title"] for it in client.get("/api/works?sort=name").json()["items"]]
+    numeric = [t for t in got if t.startswith("hy-")]
+    # 数字段自然序：位数值优先，同值按 (id 生成序) 稳定；hy-3b 紧随 hy-3
+    assert numeric == ["hy-1", "hy-2", "hy-3", "hy-03", "hy-3b", "hy-9",
+                       "hy-10", "hy-11", "hy-20", "hy-100"]
+    # 中文无数字段 → 按码点序（确定性）：另(U+53E6) < 无(U+65E0)
+    assert got[-2:] == ["另一个", "无题作品"]
+
+
+def test_sort_name_page_mode(client, db):
+    """名称排序 + page 分页（分页模式两参数叠加）。"""
+    for i, t in enumerate(["hy-10", "hy-2", "hy-1", "hy-20", "hy-3"], start=1):
+        mk_work(db, i, title=t)
+    page1 = client.get("/api/works?sort=name&limit=2&page=1").json()
+    assert [it["title"] for it in page1["items"]] == ["hy-1", "hy-2"]
+    page2 = client.get("/api/works?sort=name&limit=2&page=2").json()
+    assert [it["title"] for it in page2["items"]] == ["hy-3", "hy-10"]
+    page3 = client.get("/api/works?sort=name&limit=2&page=3").json()
+    assert [it["title"] for it in page3["items"]] == ["hy-20"]
+    assert page3["has_more"] is False and page3["total"] == 5
+
+
+def test_sort_name_cursor_pagination_consistent(client, db):
+    """名称排序下 cursor 翻页与全量顺序一致、无重无漏。"""
+    for i in range(1, 13):
+        mk_work(db, i, title=f"hy-{i}")
+
+    full = client.get("/api/works?sort=name&limit=48").json()["items"]
+    assert [it["title"] for it in full] == [f"hy-{i}" for i in range(1, 13)]
+    full_ids = [it["id"] for it in full]
+
+    paged: list[str] = []
+    cursor = None
+    while True:
+        url = "/api/works?sort=name&limit=5" + (f"&cursor={cursor}" if cursor else "")
+        body = client.get(url).json()
+        paged.extend(it["id"] for it in body["items"])
+        if not body["has_more"]:
+            assert body["next_cursor"] is None
+            break
+        cursor = body["next_cursor"]
+    assert paged == full_ids
+    assert len(set(paged)) == 12
+
+
+def test_sort_name_prev_next(client, db):
+    """名称排序下 lightbox ←/→ 邻接（hy-1→hy-5 序列）。"""
+    for i in range(1, 6):
+        mk_work(db, i, title=f"hy-{i}")
+    # 作品 id 由 mk_work 生成：wk_test00N 对应 hy-N
+    r = client.get("/api/works/wk_test003?sort=name").json()
+    assert r["prev_id"] == "wk_test002" and r["next_id"] == "wk_test004"
+    first = client.get("/api/works/wk_test001?sort=name").json()
+    assert first["prev_id"] is None and first["next_id"] == "wk_test002"
+    last = client.get("/api/works/wk_test005?sort=name").json()
+    assert last["prev_id"] == "wk_test004" and last["next_id"] is None
+
+
+def test_page_offset_pagination(client, db):
+    """Build-F【1】分页模式：page 为 1-based offset 分页，供页码随机跳转。"""
+    for i in range(1, 11):
+        mk_work(db, i)
+
+    p1 = client.get("/api/works?limit=3&page=1").json()
+    assert [it["id"] for it in p1["items"]] == ["wk_test010", "wk_test009", "wk_test008"]
+    assert p1["total"] == 10 and p1["has_more"] is True
+    assert p1["next_cursor"] is None  # page 模式不返回 cursor
+
+    p2 = client.get("/api/works?limit=3&page=2").json()
+    assert [it["id"] for it in p2["items"]] == ["wk_test007", "wk_test006", "wk_test005"]
+    assert p2["has_more"] is True
+
+    p4 = client.get("/api/works?limit=3&page=4").json()
+    assert [it["id"] for it in p4["items"]] == ["wk_test001"]
+    assert p4["has_more"] is False
+
+    # 越界页 → 空列表且 has_more False（页码控件据此收敛）
+    p9 = client.get("/api/works?limit=3&page=9").json()
+    assert p9["items"] == [] and p9["has_more"] is False and p9["total"] == 10
+
+    # 非法页码 → 422（ge=1）
+    assert client.get("/api/works?page=0").status_code == 422
+
+    # 专辑接口同样支持 page（分页模式在专辑页默认启用）
+    album = _album(db, "city")
+    for i in range(1, 4):
+        mk_work(db, 20 + i, album=album)
+    ab = client.get("/api/albums/city?limit=2&page=2").json()
+    assert ab["album"]["slug"] == "city"
+    assert [it["id"] for it in ab["items"]] == ["wk_test021"]
+    assert ab["has_more"] is False and ab["next_cursor"] is None
+
+
+# ---------------------------------------------------------------- Build-F【3】下载转发
+
+
+class _FakeUpstream:
+    def __init__(self, chunks, headers, status_code=200):
+        self._chunks = chunks
+        self.headers = headers
+        self.status_code = status_code
+        self.closed = False
+
+    def iter_bytes(self, size=0):
+        yield from self._chunks
+
+    def close(self):
+        self.closed = True
+
+
+class _FakeClient:
+    def __init__(self):
+        self.closed = False
+
+    def close(self):
+        self.closed = True
+
+
+def test_media_download_streams_attachment(client, db, monkeypatch):
+    import app.routes.public as public_routes
+
+    mk_work(db, 1, title="河流山谷")
+    upstream = _FakeUpstream(
+        [b"abc", b"def"],
+        {"content-type": "image/png", "content-length": "6"},
+    )
+    fake_client = _FakeClient()
+    monkeypatch.setattr(public_routes, "_open_upstream", lambda url: (upstream, fake_client))
+
+    r = client.get("/api/media/wk_test001?download=1")
+    assert r.status_code == 200
+    assert r.content == b"abcdef"
+    assert r.headers["content-type"] == "image/png"
+    assert r.headers["content-length"] == "6"
+    disposition = r.headers["content-disposition"]
+    assert disposition.startswith("attachment;")
+    assert 'filename="1.png"' in disposition  # 取自直链末段
+    assert upstream.closed and fake_client.closed
+
+    # 不带 download 仍是 302 直链（存量行为不变）
+    r2 = client.get("/api/media/wk_test001", follow_redirects=False)
+    assert r2.status_code == 302
+
+
+def test_media_download_upstream_failure_502(client, db, monkeypatch):
+    import httpx
+
+    import app.routes.public as public_routes
+
+    mk_work(db, 1)
+
+    class _BoomClient:  # 模拟连接失败（走真实 _open_upstream 的异常包装路径）
+        def __init__(self, **_kw):
+            pass
+
+        def build_request(self, method, url):
+            return httpx.Request(method, url)
+
+        def send(self, _request, stream=False):
+            raise httpx.ConnectError("boom")
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(public_routes.httpx, "Client", _BoomClient)
+    r = client.get("/api/media/wk_test001?download=1")
+    assert r.status_code == 502
+    assert r.json()["error"]["code"] == "media_fetch_failed"
+
+
+def test_media_download_missing_kind_404(client, db):
+    mk_work(db, 1)  # 图片无 poster
+    r = client.get("/api/media/wk_test001?kind=poster&download=1")
+    assert r.status_code == 404
+    assert r.json()["error"]["code"] == "media_not_found"
+
+
 def test_pagination_same_timestamp_deterministic_order(client, db):
     """Build-E【1】回归：批量导入同 created_at 时顺序确定性（id DESC），翻页无重无漏。"""
     for i in range(1, 31):

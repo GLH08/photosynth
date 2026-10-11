@@ -4,8 +4,18 @@ export type WorkType = "image" | "video";
 export type RatioBucket =
   | "portrait" | "square" | "landscape" // 旧桶：仅 URL 兼容保留，UI 已改用真实比例值
   | "16:9" | "9:16" | "1:1" | "4:3" | "3:4" | "3:2" | "2:3" | "4:5";
-export type SortOrder = "latest" | "oldest";
+/** Build-F【1】：name = 名称自然排序（hy-1 < hy-2 < … < hy-10，后端 SQL 侧完成） */
+export type SortOrder = "latest" | "oldest" | "name";
 export type AlbumKind = "image" | "video" | "mixed";
+
+/** Build-F【1】浏览模式：scroll = 连续滚动（cursor 无限加载）；paged = 传统页码 */
+export type BrowseMode = "scroll" | "paged";
+
+/** Build-F【1】浏览状态（URL query 同步：mode/page） */
+export interface ViewState {
+  mode: BrowseMode;
+  page: number;
+}
 
 export interface TagBrief {
   slug: string;

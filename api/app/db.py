@@ -7,6 +7,8 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
+from .textsort import natural_sort_key
+
 
 class Base(DeclarativeBase):
     pass
@@ -25,6 +27,10 @@ def make_engine(database_url: str) -> Engine:
             cur.execute("PRAGMA foreign_keys=ON")
             cur.execute("PRAGMA synchronous=NORMAL")
             cur.close()
+            # Build-F【1】：注册自然排序用户函数（每个连接都要注册）。
+            # 「按名称」排序在 SQL 侧完成（ORDER BY / cursor 比较），
+            # 实现与 cursor 键共用 app.textsort，保证两侧一致。
+            dbapi_conn.create_function("natural_sort_key", 1, natural_sort_key)
 
     return engine
 

@@ -8,7 +8,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import GalleryClient from "@/components/GalleryClient";
-import { getAlbums, getStats, getTags, getWorksPage, parseFiltersFromSearchParams } from "@/lib/api";
+import {
+  PAGE_SIZE,
+  getAlbums,
+  getStats,
+  getTags,
+  getWorksPage,
+  parseFiltersFromSearchParams,
+  parseViewFromSearchParams,
+} from "@/lib/api";
 
 export const revalidate = 60;
 
@@ -32,11 +40,17 @@ export default async function TagPage({ params, searchParams }: Props) {
   const { slug } = await params;
   const sp = await searchParams;
   const filters = parseFiltersFromSearchParams(sp);
+  const view = parseViewFromSearchParams(sp);
 
   const [tags, albums, works] = await Promise.all([
     getTags(),
     getAlbums(),
-    getWorksPage({ ...filters, tags: [slug], limit: 24 }),
+    getWorksPage({
+      ...filters,
+      tags: [slug],
+      limit: PAGE_SIZE,
+      page: view.mode === "paged" ? view.page : undefined,
+    }),
   ]);
   const tag = tags.find((t) => t.slug === slug);
 
@@ -65,6 +79,7 @@ export default async function TagPage({ params, searchParams }: Props) {
       <GalleryClient
         initialData={works}
         initialFilters={filters}
+        initialView={view}
         albums={albums}
         tags={tags}
         basePath={`/tags/${slug}`}
