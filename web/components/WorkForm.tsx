@@ -15,7 +15,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
 import { useToast } from "@/components/Toast";
-import { ApiClientError, clientSend } from "@/lib/api";
+import { ApiClientError, clientSend, isStaleSession } from "@/lib/api";
 import type { AlbumInfo, TagInfo, WorkDetail, WorkType } from "@/lib/types";
 
 interface Props {
@@ -358,7 +358,10 @@ export default function WorkForm({ albums, tags, initial }: Props) {
       router.refresh();
     } catch (err) {
       if (err instanceof ApiClientError && err.status === 401) {
-        router.replace(`/admin/login?next=${encodeURIComponent(pathname)}`);
+        // 旧会话（缺 gal_csrf）已由 clientSend 整页跳登录页，勿重复跳转
+        if (!isStaleSession(err)) {
+          router.replace(`/admin/login?next=${encodeURIComponent(pathname)}`);
+        }
         return;
       }
       toast.push(err instanceof Error ? err.message : "登记失败", "error");

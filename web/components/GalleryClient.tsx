@@ -30,6 +30,7 @@ import {
   batchWorks,
   buildWorksQuery,
   clientGet,
+  isStaleSession,
   listUrlFromFilters,
 } from "@/lib/api";
 import type {
@@ -465,7 +466,10 @@ export default function GalleryClient({
         router.refresh();
       } catch (err) {
         if (err instanceof ApiClientError && err.status === 401) {
-          router.replace(`/admin/login?next=${encodeURIComponent(pathname)}`);
+          // 旧会话（缺 gal_csrf）已由 clientSend 整页跳登录页，勿重复跳转
+          if (!isStaleSession(err)) {
+            router.replace(`/admin/login?next=${encodeURIComponent(pathname)}`);
+          }
           return;
         }
         toast.push(err instanceof Error ? err.message : "批量操作失败", "error");

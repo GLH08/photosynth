@@ -157,19 +157,48 @@ export class ApiClientError extends Error {
   }
 }
 
+/** Build-J：clientSend 检测到旧会话（缺 gal_csrf）时已在内部整页跳登录页并抛此错误；
+ *  调用方据此跳过自身的 401 跳转，避免重复跳转。 */
+export function isStaleSession(err: unknown): boolean {
+  return err instanceof ApiClientError && err.code === "session_stale";
+}
+
 export async function clientGet<T>(path: string): Promise<T> {
   const r = await fetch(path, { headers: { accept: "application/json" } });
   return unwrap<T>(r);
 }
 
+/** 写操作中无需 CSRF 校验的路径：登录签发 gal_csrf、登出清 Cookie（本身就是旧会话出路）。 */
+const CSRF_EXEMPT_PATHS = new Set(["/api/admin/login", "/api/admin/logout"]);
+
+function isCsrfExempt(path: string): boolean {
+  return CSRF_EXEMPT_PATHS.has(path.split("?")[0]);
+}
+
+/** 整页跳登录页并带回跳目标（window.location.assign，与站内搜索跳转同法）。 */
+function redirectToLogin(): void {
+  if (typeof window === "undefined") return;
+  const { pathname, search } = window.location;
+  window.location.assign(
+    `/admin/login?next=${encodeURIComponent(`${pathname}${search}`)}`,
+  );
+}
+
 /** 管理端写操作（POST/PATCH/DELETE）：204 → null；非 2xx → ApiClientError。
- * 自动携带 X-CSRF-Token（从 gal_csrf Cookie 读，Double-Submit 防 CSRF）。 */
+ * 自动携带 X-CSRF-Token（从 gal_csrf Cookie 读，Double-Submit 防 CSRF）。
+ * Build-J：旧会话（CSRF 上线前签发，仅有 gal_session、无 gal_csrf）写请求必 403，
+ * 此时不再发出请求，直接整页跳登录页并抛 401 session_stale，让调用方不再继续；
+ * 登录/登出豁免，SSR（无 document）不触发。 */
 export async function clientSend<T>(
   method: "POST" | "PATCH" | "PUT" | "DELETE",
   path: string,
   body?: unknown,
 ): Promise<T | null> {
   const csrf = readCookie("gal_csrf");
+  if (!csrf && typeof document !== "undefined" && !isCsrfExempt(path)) {
+    redirectToLogin();
+    throw new ApiClientError("登录状态已过期，请重新登录", 401, "session_stale");
+  }
   const r = await fetch(path, {
     method,
     headers: {

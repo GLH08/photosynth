@@ -12,7 +12,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState, type MouseEvent } from "react";
 
 import { useToast } from "@/components/Toast";
-import { ApiClientError, toggleFeatured } from "@/lib/api";
+import { ApiClientError, isStaleSession, toggleFeatured } from "@/lib/api";
 
 interface Props {
   id: string;
@@ -54,7 +54,10 @@ export default function QuickFeatureButton({
       router.refresh();
     } catch (err) {
       if (err instanceof ApiClientError && err.status === 401) {
-        router.replace(`/admin/login?next=${encodeURIComponent(pathname)}`);
+        // 旧会话（缺 gal_csrf）已由 clientSend 整页跳登录页，勿重复跳转
+        if (!isStaleSession(err)) {
+          router.replace(`/admin/login?next=${encodeURIComponent(pathname)}`);
+        }
         return;
       }
       toast.push(err instanceof Error ? err.message : "操作失败", "error");

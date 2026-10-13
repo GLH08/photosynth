@@ -2507,8 +2507,30 @@ button {
   box-shadow: inset 2px 0 0 var(--c-primary-600);
 }
 
-.admin-logout { color: var(--c-danger); }
-.admin-logout:hover { background: var(--c-danger-soft); color: var(--c-danger); }
+/* Build-J 退出入口（Header 桌面导航右侧 + 移动端抽屉）：
+   沿用 .nav-link 布局，危险色提示退出；复用旧 admin 侧栏残留的 .admin-logout 语义。 */
+.admin-logout {
+  cursor: pointer;
+  border-radius: var(--r-md);
+  color: var(--c-danger);
+}
+
+.admin-logout:hover {
+  background: var(--c-danger-soft);
+  color: var(--c-danger);
+}
+
+.admin-logout:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 仅桌面端在 Header 右侧显示退出（<768px 收进抽屉，避免重复入口） */
+.header-logout { display: none; }
+
+@media (min-width: 768px) {
+  .header-logout { display: inline-flex; }
+}
 
 .admin-side-foot {
   margin-top: auto;

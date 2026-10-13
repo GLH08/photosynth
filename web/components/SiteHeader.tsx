@@ -6,8 +6,11 @@
  * 右搜索图标 → /gallery?q=；滚动后加 sh-3；<768px 收汉堡抽屉。
  */
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
+
+import { useToast } from "@/components/Toast";
+import { clientSend } from "@/lib/api";
 
 const NAV_ITEMS = [
   { href: "/", label: "首页" },
@@ -45,10 +48,13 @@ function ApertureMark() {
 
 export default function SiteHeader() {
   const pathname = usePathname();
+  const router = useRouter();
+  const toast = useToast();
   const [scrolled, setScrolled] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [q, setQ] = useState("");
+  const [loggingOut, setLoggingOut] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
   // 滚动后加 --sh-3 轻投影（5.4）
@@ -83,6 +89,33 @@ export default function SiteHeader() {
     setSearchOpen(false);
     setDrawerOpen(false);
   };
+
+  // Build-J 退出：POST /api/admin/logout（登出豁免 CSRF，旧会话也能用）→ 清 Cookie → 登录页。
+  const onLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await clientSend("POST", "/api/admin/logout");
+      toast.push("已退出登录", "success");
+      router.replace("/admin/login");
+      router.refresh(); // 让目标页 SSR 以清空后的 Cookie 重新校验
+    } catch (err) {
+      toast.push(err instanceof Error ? err.message : "退出失败，请重试", "error");
+    } finally {
+      setLoggingOut(false);
+    }
+  };
+
+  const logoutButton = (extraClass = "") => (
+    <button
+      type="button"
+      className={`nav-link admin-logout${extraClass}`}
+      onClick={onLogout}
+      disabled={loggingOut}
+    >
+      {loggingOut ? "退出中…" : "退出"}
+    </button>
+  );
 
   const searchForm = (
     <form className={`search-form${searchOpen ? " open" : ""}`} action={searchBase} method="get" onSubmit={onSearch} role="search">
@@ -153,6 +186,7 @@ export default function SiteHeader() {
               )}
             </svg>
           </button>
+          {logoutButton(" header-logout")}
         </div>
       </div>
 
@@ -169,6 +203,7 @@ export default function SiteHeader() {
             </Link>
           ))}
           {searchForm}
+          {logoutButton()}
         </div>
       )}
     </header>

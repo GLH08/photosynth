@@ -13,7 +13,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { useToast } from "@/components/Toast";
-import { ApiClientError, clientGet, clientSend } from "@/lib/api";
+import { ApiClientError, clientGet, clientSend, isStaleSession } from "@/lib/api";
 import type { AdminAlbum, AdminTag, AlbumInfo, AlbumKind, TagInfo } from "@/lib/types";
 
 /** slug 自动生成：小写、非 ASCII 折叠为 -；全空退化随机短串（可手改） */
@@ -32,7 +32,10 @@ function useGuard() {
   const pathname = usePathname();
   return (err: unknown): boolean => {
     if (err instanceof ApiClientError && err.status === 401) {
-      router.replace(`/admin/login?next=${encodeURIComponent(pathname)}`);
+      // 旧会话（缺 gal_csrf）已由 clientSend 整页跳登录页，勿重复跳转
+      if (!isStaleSession(err)) {
+        router.replace(`/admin/login?next=${encodeURIComponent(pathname)}`);
+      }
       return true;
     }
     return false;

@@ -11,7 +11,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import EmptyState from "@/components/EmptyState";
 import { useToast } from "@/components/Toast";
-import { ApiClientError, getTrash, purgeWork, restoreWork } from "@/lib/api";
+import { ApiClientError, getTrash, isStaleSession, purgeWork, restoreWork } from "@/lib/api";
 import type { WorkListItem } from "@/lib/types";
 
 const PAGE = 24;
@@ -43,7 +43,10 @@ function TrashRow({
 
   const guard = (err: unknown): boolean => {
     if (err instanceof ApiClientError && err.status === 401) {
-      router.replace(`/admin/login?next=${encodeURIComponent(pathname)}`);
+      // 旧会话（缺 gal_csrf）已由 clientSend 整页跳登录页，勿重复跳转
+      if (!isStaleSession(err)) {
+        router.replace(`/admin/login?next=${encodeURIComponent(pathname)}`);
+      }
       return true;
     }
     return false;
