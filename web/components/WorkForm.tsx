@@ -15,6 +15,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
 import { useToast } from "@/components/Toast";
+import { revalidateWorkViews } from "@/lib/actions";
 import { ApiClientError, clientSend, isStaleSession } from "@/lib/api";
 import type { AlbumInfo, TagInfo, WorkDetail, WorkType } from "@/lib/types";
 
@@ -41,6 +42,20 @@ function parseRatio(v: string): [number, number] | null {
   const b = Number(m[2]);
   if (!isFinite(a) || !isFinite(b) || a <= 0 || b <= 0) return null;
   return [a, b];
+}
+
+/** 编辑态预填：由宽高比反推比例下拉值，命中 VIDEO_RATIOS 中相对误差 ≤3% 的桶
+ *  （与后端 _ratio_condition 同容差）；无命中返回 ""（下拉显空 = 未识别）。 */
+function ratioFromSize(width: number, height: number): string {
+  if (!(width > 0) || !(height > 0)) return "";
+  const actual = width / height;
+  for (const ratio of VIDEO_RATIOS) {
+    const parsed = parseRatio(ratio);
+    if (!parsed) continue;
+    const target = parsed[0] / parsed[1];
+    if (Math.abs(actual - target) <= target * 0.03) return ratio;
+  }
+  return "";
 }
 
 interface FormState {
@@ -137,7 +152,7 @@ function fromDetail(w: WorkDetail): FormState {
     })),
     first_frame_url: first?.url ?? "",
     last_frame_url: last?.url ?? "",
-    video_ratio: "",
+    video_ratio: ratioFromSize(w.width, w.height),
     media_url: w.media_url,
     thumb_url: w.thumb_url === w.media_url ? "" : w.thumb_url,
     poster_url: w.poster_url ?? "",
@@ -336,6 +351,16 @@ export default function WorkForm({ albums, tags, initial }: Props) {
           featured: f.featured,
         };
         await clientSend("PATCH", `/api/admin/works/${initial.id}`, patch);
+        // Build-K：失效详情页与列表页缓存，保存后立即看到新值（不等 60s ISR）
+        try {
+          await revalidateWorkViews(
+            initial.id,
+            f.album_slug || null,
+            parseTagInput(f.tag_slugs),
+          );
+        } catch {
+          /* 缓存失效失败不阻断跳转：最坏退化为原 60s 缓存 */
+        }
         toast.push(`已保存「${f.title.trim() || initial.id}」`, "success");
         router.push(`/works/${initial.id}`);
         router.refresh();
