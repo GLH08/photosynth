@@ -15,7 +15,8 @@
 import { useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
 
 import { formatDuration, formatResolution } from "@/lib/api";
-import { cheveretoVariant } from "@/lib/chevereto";
+import { cheveretoSrcset, cheveretoVariant } from "@/lib/chevereto";
+import { CARD_SIZES } from "@/lib/responsive";
 import type { WorkListItem } from "@/lib/types";
 import QuickFeatureButton from "./QuickFeatureButton";
 import WorkManageButtons from "./WorkManageButtons";
@@ -40,6 +41,8 @@ interface Props {
   onToggleSelect?: (work: WorkListItem) => void;
   /** Build-H【2】长按卡片进入选择模式（移动端友好） */
   onLongPress?: (work: WorkListItem) => void;
+  /** Build-M2：卡片 <img> 的 sizes（默认瀑布流断点；视频网格传 VIDEO_GRID_SIZES） */
+  sizes?: string;
 }
 
 export default function MasonryCard({
@@ -53,6 +56,7 @@ export default function MasonryCard({
   selected = false,
   onToggleSelect,
   onLongPress,
+  sizes = CARD_SIZES,
 }: Props) {
   const isVideo = work.type === "video";
   // Build-M1：卡片一律加载 Chevereto `.th` 变体（原图 11-13MB，.th 仅 ~160KB）；
@@ -66,6 +70,11 @@ export default function MasonryCard({
   const [srcIdx, setSrcIdx] = useState(0);
   const [failed, setFailed] = useState(false);
   const src = candidates[srcIdx] ?? work.media_url;
+
+  // Build-M2：srcset 基于「原始」缩略 URL（图片 thumb_url / 视频 poster_url）构造
+  // th(320w)→md(500w)→原图(Nw)；非 Chevereto 时返回 undefined（不加 srcset，行为不变）。
+  const srcsetBase = isVideo ? (work.poster_url ?? work.thumb_url) : work.thumb_url;
+  const srcSet = cheveretoSrcset(srcsetBase, work.width);
 
   const onImgError = () => {
     if (srcIdx + 1 < candidates.length) {
@@ -185,6 +194,8 @@ export default function MasonryCard({
         ) : (
           <img
             src={src}
+            srcSet={srcSet}
+            sizes={srcSet ? sizes : undefined}
             alt={work.title || work.prompt}
             width={work.width}
             height={work.height}

@@ -72,14 +72,19 @@ export function cheveretoVariant(
 /**
  * 为 `<img srcSet>` 构造 `w` 描述符列表：`th(320w) → md(500w) → 原图(Nw)`。
  * 只在确为 Chevereto 图片、且存在比原图更小的变体时返回；否则返回 undefined（不加 srcset）。
+ *
+ * `variants` 可选，用来排除不适合该位的档位：详情大图无内联宽高、依赖图片自身固有比例，
+ * 而 `.th` 是方形裁切（会改变比例），故详情只允许 `["md"]`；卡片有 width/height + contain，
+ * 用默认 `["th", "md"]` 安全。
  */
 export function cheveretoSrcset(
   url: string | null | undefined,
   originalWidth: number,
+  variants: readonly CheveretoVariant[] = ["th", "md"],
 ): string | undefined {
   if (!url) return undefined;
   const entries: string[] = [];
-  for (const variant of ["th", "md"] as const) {
+  for (const variant of variants) {
     const width = CHEVERETO_VARIANT_WIDTH[variant];
     if (originalWidth > 0 && width >= originalWidth) continue; // 不比原图小则无意义
     const candidate = cheveretoVariant(url, variant);
