@@ -102,9 +102,9 @@ function TrashRow({
   return (
     <li className="trash-row">
       <div className="trash-thumb">
-        {/* 回收站内作品公开详情已 404，缩略图直接取外部 thumb_url（Build-M1：走 .th 变体） */}
+        {/* 回收站内作品公开详情已 404，缩略图直接取外部 thumb_url（Build-M7：走等比 .md 变体） */}
         <img
-          src={cheveretoVariant(work.thumb_url || work.media_url, "th")}
+          src={cheveretoVariant(work.thumb_url || work.media_url, "md")}
           alt={work.title || work.id}
           loading="lazy"
           decoding="async"

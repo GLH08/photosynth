@@ -10,8 +10,7 @@
  */
 import { useState, type ReactNode } from "react";
 
-import { cheveretoSrcset, cheveretoVariant } from "@/lib/chevereto";
-import { DETAIL_SIZES } from "@/lib/responsive";
+import { cheveretoVariant } from "@/lib/chevereto";
 import type { WorkDetail } from "@/lib/types";
 
 interface Props {
@@ -98,10 +97,8 @@ export default function WorkMedia({ work, previewUrl, onExitPreview, fill = fals
   }
 
   // 图片：thumb 打底 + 原图交叉淡入（加载失败保留 thumb，仍是全貌）
-  // Build-M1：打底层改用 `.md` 变体（比原图小两个数量级），原图仍是 media_url。
-  // Build-M2：原图 <img> 加 srcset（.md 500w + 原图 Nw）——无内联宽高、依赖固有比例，
-  // 故排除方形裁切的 .th；移动端可命中 .md，桌面拿下原图。
-  const fullSrcSet = cheveretoSrcset(work.media_url, work.width, ["md"]);
+  // Build-M7：打底层用等比 `.md` 变体（比原图小两个数量级），详情大图 = 原图 media_url（始终原图，
+  // 不给 srcset：含原图的 srcset 在 DPR≥2 也无意义，交叉淡入设计就是「先小后原图」）。
   const stack: ReactNode = (
     <>
       <img
@@ -126,8 +123,6 @@ export default function WorkMedia({ work, previewUrl, onExitPreview, fill = fals
       />
       <img
         src={work.media_url}
-        srcSet={fullSrcSet}
-        sizes={fullSrcSet ? DETAIL_SIZES : undefined}
         alt={work.title || "作品原图"}
         referrerPolicy="no-referrer"
         decoding="async"

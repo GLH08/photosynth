@@ -34,7 +34,6 @@ import {
   isStaleSession,
   listUrlFromFilters,
 } from "@/lib/api";
-import { VIDEO_GRID_SIZES } from "@/lib/responsive";
 import type {
   AlbumInfo,
   BatchOp,
@@ -516,7 +515,6 @@ export default function GalleryClient({
             <MasonryCard
               work={entry.work}
               enterDelayMs={entry.enterDelayMs}
-              sizes={VIDEO_GRID_SIZES}
               onOpen={openWork}
               onDeleted={onCardDeleted}
               onFeaturedChange={onFeaturedChange}

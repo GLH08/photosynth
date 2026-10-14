@@ -3,7 +3,7 @@
 /**
  * MasonryCard（DESIGN 5.5，全站复用之王）：
  * - 媒体框内联 aspect-ratio 占位（杜绝 CLS），<img> contain 零裁切；
- * - loading=lazy decoding=async referrerpolicy=no-referrer；一律加载 thumb_url；
+ * - loading=lazy decoding=async referrerpolicy=no-referrer；一律加载 Chevereto `.md` 变体；
  * - onerror 回退 media_url 原图（一次为限，防循环）；再失败 sunken 衬底 + 断链图标 + 「查看原链」；
  * - 视频扩展位（5.7）：poster 封面 + 右下时长角标 + 中央播放浮标（网格内零视频请求）；
  * - featured ★ 琥珀金角标；整卡可点（role="link"，Enter 打开）；文本区可配置隐藏；
@@ -15,8 +15,7 @@
 import { useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
 
 import { formatDuration, formatResolution } from "@/lib/api";
-import { cheveretoSrcset, cheveretoVariant } from "@/lib/chevereto";
-import { CARD_SIZES } from "@/lib/responsive";
+import { cheveretoVariant } from "@/lib/chevereto";
 import type { WorkListItem } from "@/lib/types";
 import QuickFeatureButton from "./QuickFeatureButton";
 import WorkManageButtons from "./WorkManageButtons";
@@ -41,8 +40,6 @@ interface Props {
   onToggleSelect?: (work: WorkListItem) => void;
   /** Build-H【2】长按卡片进入选择模式（移动端友好） */
   onLongPress?: (work: WorkListItem) => void;
-  /** Build-M2：卡片 <img> 的 sizes（默认瀑布流断点；视频网格传 VIDEO_GRID_SIZES） */
-  sizes?: string;
 }
 
 export default function MasonryCard({
@@ -56,26 +53,21 @@ export default function MasonryCard({
   selected = false,
   onToggleSelect,
   onLongPress,
-  sizes = CARD_SIZES,
 }: Props) {
   const isVideo = work.type === "video";
-  // Build-M1：卡片一律加载 Chevereto `.th` 变体（原图 11-13MB，.th 仅 ~160KB）；
-  // Build-M3：视频封面帧 poster_url 是 11-13MB 首帧原图，卡片用其 `.md` 变体（~0.68MB）。
-  // 图片：th(thumb) → media_url 一次回退 → 断链兜底；
-  // 视频（5.7）：卡片显示 md(poster) 海报（网格内零视频请求），失败退 th(thumb) 再退 media。
+  // Build-M7：展示路径一律 Chevereto `.md`（等比、最长边 500）。
+  // 旧的 `.th` 是 320×320 方形中心裁切，会切掉 9:16 原图的头脚，违反「永不裁切」，
+  // 故卡片彻底弃用；也不能加 srcset（含原图时 DPR≥2 会让浏览器挑回 11MB 原图）。
+  // 图片：md(thumb) → media_url 一次回退 → 断链兜底；
+  // 视频（5.7）：md(poster) 海报 → md(thumb) → media_url（网格内零视频请求）。
   const candidates = (
     isVideo
-      ? [cheveretoVariant(work.poster_url, "md"), cheveretoVariant(work.thumb_url, "th"), work.media_url]
-      : [cheveretoVariant(work.thumb_url, "th"), work.media_url]
+      ? [cheveretoVariant(work.poster_url, "md"), cheveretoVariant(work.thumb_url, "md"), work.media_url]
+      : [cheveretoVariant(work.thumb_url, "md"), work.media_url]
   ).filter((v, i, arr): v is string => Boolean(v) && arr.indexOf(v) === i);
   const [srcIdx, setSrcIdx] = useState(0);
   const [failed, setFailed] = useState(false);
   const src = candidates[srcIdx] ?? work.media_url;
-
-  // Build-M2：srcset 基于「原始」缩略 URL（图片 thumb_url / 视频 poster_url）构造
-  // th(320w)→md(500w)→原图(Nw)；非 Chevereto 时返回 undefined（不加 srcset，行为不变）。
-  const srcsetBase = isVideo ? (work.poster_url ?? work.thumb_url) : work.thumb_url;
-  const srcSet = cheveretoSrcset(srcsetBase, work.width);
 
   const onImgError = () => {
     if (srcIdx + 1 < candidates.length) {
@@ -195,8 +187,6 @@ export default function MasonryCard({
         ) : (
           <img
             src={src}
-            srcSet={srcSet}
-            sizes={srcSet ? sizes : undefined}
             alt={work.title || work.prompt}
             width={work.width}
             height={work.height}

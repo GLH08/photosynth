@@ -26,7 +26,7 @@ export default function AlbumCard({ album, cover }: Props) {
       <div className="album-cover">
         {cover ? (
           <img
-            src={cheveretoVariant(cover, "th")}
+            src={cheveretoVariant(cover, "md")}
             alt={`${album.name} 专辑封面`}
             loading="lazy"
             decoding="async"

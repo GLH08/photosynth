@@ -10,6 +10,7 @@ import Link from "next/link";
 import { useState, type ReactNode } from "react";
 
 import { copyText } from "@/lib/copy";
+import { cheveretoVariant } from "@/lib/chevereto";
 import { formatDuration, formatResolution } from "@/lib/api";
 import type { WorkDetail } from "@/lib/types";
 import { useToast } from "./Toast";
@@ -184,7 +185,7 @@ export default function WorkDetailPanel({
                 >
                   <span className="ref-order">#{ref.order ?? i + 1}</span>
                   <img
-                    src={ref.thumb_url || ref.url}
+                    src={cheveretoVariant(ref.thumb_url || ref.url, "md")}
                     alt={`参考图 #${ref.order ?? i + 1}`}
                     referrerPolicy="no-referrer"
                     decoding="async"

@@ -1,10 +1,14 @@
 /**
- * Chevereto 变体 URL 派生（Build-M1）：
+ * Chevereto 变体 URL 派生（Build-M1；Build-M7 修正变体语义）：
  *
  * Chevereto 为每张图片自动生成两档变体，规则是在「最终扩展名」前插入后缀：
- *   - `.th`（thumb，实测 320×320 方形）
- *   - `.md`（medium，实测最长边 500）
+ *   - `.th`：实测 320×320 方形中心裁切（下载样本读 PNG IHDR 验证）。9:16 原图会被切掉
+ *     头脚，违反站点「永不裁切 / 完整看见」的核心原则 → 严禁用于任何展示路径。
+ *   - `.md`：等比缩放，最长边 500（9:16 原图 → 500×889，约 0.68MB）→ 所有展示路径唯一允许的档位。
  * 人类可读名与哈希名 URL 都有变体（HEAD 已验证）。
+ *
+ * 本 helper 对两档仍保持通用（`variant` 参数保留，作为纯 URL 工具），但调用方纪律是：
+ * 展示路径一律传 `.md`；方形裁切的 `.th` 不得出现在任何展示代码里。
  *
  * 纪律（歧义一律原样返回，绝不猜测）：
  *   - 非 Chevereto URL（外部图床等）→ 原样返回；
@@ -16,7 +20,10 @@
 
 export type CheveretoVariant = "th" | "md";
 
-/** 变体实测像素宽度（下载样本读 PNG IHDR 得出，供 srcset 宽度描述符用）。 */
+/**
+ * 变体实测像素宽度（下载样本读 PNG IHDR 得出，供 srcset 宽度描述符用）。
+ * 注意：`.th` 是 320×320 的方形裁切宽高，不保留原图比例 → 展示路径禁用。
+ */
 export const CHEVERETO_VARIANT_WIDTH: Record<CheveretoVariant, number> = {
   th: 320,
   md: 500,
@@ -70,12 +77,12 @@ export function cheveretoVariant(
 }
 
 /**
- * 为 `<img srcSet>` 构造 `w` 描述符列表：`th(320w) → md(500w) → 原图(Nw)`。
+ * 通用 `<img srcSet>` 构造器：`th(320w) → md(500w) → 原图(Nw)`（默认档位）。
  * 只在确为 Chevereto 图片、且存在比原图更小的变体时返回；否则返回 undefined（不加 srcset）。
  *
- * `variants` 可选，用来排除不适合该位的档位：详情大图无内联宽高、依赖图片自身固有比例，
- * 而 `.th` 是方形裁切（会改变比例），故详情只允许 `["md"]`；卡片有 width/height + contain，
- * 用默认 `["th", "md"]` 安全。
+ * Build-M7：展示路径（卡片 / 封面 / 回收站 / 详情打底）已全部改成单一等比 `.md` src，
+ * 不再使用 srcset —— 含原图的 srcset 在 DPR≥2 屏幕会让浏览器挑回 11MB 原图。
+ * 本函数仅作为通用工具保留；任何展示调用都必须排除方形裁切的 `.th`（即显式传 ["md"]）。
  */
 export function cheveretoSrcset(
   url: string | null | undefined,
