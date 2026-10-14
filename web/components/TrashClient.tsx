@@ -11,6 +11,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import EmptyState from "@/components/EmptyState";
 import { useToast } from "@/components/Toast";
+import { revalidateBulkViews } from "@/lib/actions";
 import { ApiClientError, getTrash, isStaleSession, purgeWork, restoreWork } from "@/lib/api";
 import { cheveretoVariant } from "@/lib/chevereto";
 import type { WorkListItem } from "@/lib/types";
@@ -60,6 +61,11 @@ function TrashRow({
       await restoreWork(work.id);
       toast.push(`已恢复「${work.title || work.id}」`, "success");
       onRemoved(work.id);
+      try {
+        await revalidateBulkViews([work.id]); // Build-M4：让其他页面即时看到恢复
+      } catch {
+        /* 缓存失效失败不阻断 */
+      }
       router.refresh();
     } catch (err) {
       if (!guard(err)) toast.push(err instanceof Error ? err.message : "恢复失败", "error");
@@ -80,6 +86,11 @@ function TrashRow({
       await purgeWork(work.id);
       toast.push(`已彻底删除「${work.title || work.id}」（不可恢复）`, "success");
       onRemoved(work.id);
+      try {
+        await revalidateBulkViews([work.id]); // Build-M4：让其他页面即时移除该项
+      } catch {
+        /* 缓存失效失败不阻断 */
+      }
       router.refresh();
     } catch (err) {
       if (!guard(err)) toast.push(err instanceof Error ? err.message : "删除失败", "error");

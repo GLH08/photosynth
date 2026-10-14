@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
+import { applyRevalidate, bulkRevalidatePaths } from "./revalidate";
+
 /**
  * Build-K：作品保存后按需失效其相关缓存。
  * 详情页 `/works/${id}` 与可能展示该作品的列表页（首页精选 rail、/gallery、/videos、
@@ -21,4 +23,13 @@ export async function revalidateWorkViews(
   revalidatePath("/videos");
   if (albumSlug) revalidatePath(`/albums/${albumSlug}`);
   for (const slug of tagSlugs) revalidatePath(`/tags/${slug}`);
+}
+
+/**
+ * Build-M4：批量改动（批量操作 / 回收站恢复·彻底删除 / 单条移入回收站）成功后，
+ * 失效所有会被影响的视图缓存。当前页由本地状态 + router.refresh() 负责，
+ * 这里解决「其他页面最多 60s 才更新」的问题；ids 已知时一并失效对应详情页。
+ */
+export async function revalidateBulkViews(ids: string[] = []): Promise<void> {
+  applyRevalidate(bulkRevalidatePaths(ids), revalidatePath);
 }

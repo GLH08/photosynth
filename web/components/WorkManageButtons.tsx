@@ -15,6 +15,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 
 import { useToast } from "@/components/Toast";
+import { revalidateBulkViews } from "@/lib/actions";
 import { ApiClientError, clientSend, isStaleSession } from "@/lib/api";
 import type { WorkType } from "@/lib/types";
 
@@ -71,6 +72,12 @@ export default function WorkManageButtons({
       toast.push(`已移入回收站「${title || id}」，可在回收站恢复`, "success");
       if (onDeleted) onDeleted();
       else router.replace(type === "video" ? "/videos" : "/gallery");
+      // Build-M4：单条删除也失效其他视图缓存（详情页 + 各列表页）
+      try {
+        await revalidateBulkViews([id]);
+      } catch {
+        /* 缓存失效失败不阻断 */
+      }
       router.refresh();
     } catch (err) {
       if (err instanceof ApiClientError && err.status === 401) {

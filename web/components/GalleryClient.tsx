@@ -24,6 +24,7 @@ import Pagination from "./Pagination";
 import { MasonrySkeleton, MasonrySkeletonSmall, VideoGridSkeleton } from "./Skeleton";
 import { useToast } from "./Toast";
 import WorkDialog from "./WorkDialog";
+import { revalidateBulkViews } from "@/lib/actions";
 import {
   ApiClientError,
   PAGE_SIZE,
@@ -464,6 +465,12 @@ export default function GalleryClient({
         const fail = res.failed.length > 0 ? `，${res.failed.length} 项失败` : "";
         toast.push(`${label}${fail}`, res.failed.length > 0 ? "warning" : "success");
         setSelected(new Set());
+        // Build-M4：失效其他视图缓存（首页/画廊/视频/回收站/专辑/标签 + 受影响详情页）
+        try {
+          await revalidateBulkViews(ids);
+        } catch {
+          /* 缓存失效失败不阻断：最坏退化为原 60s ISR */
+        }
         router.refresh();
       } catch (err) {
         if (err instanceof ApiClientError && err.status === 401) {
