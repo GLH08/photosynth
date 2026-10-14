@@ -5,6 +5,7 @@
  */
 import Link from "next/link";
 
+import { cheveretoVariant } from "@/lib/chevereto";
 import type { AlbumInfo } from "@/lib/types";
 
 const KIND_LABEL: Record<AlbumInfo["kind"], string> = {
@@ -25,7 +26,7 @@ export default function AlbumCard({ album, cover }: Props) {
       <div className="album-cover">
         {cover ? (
           <img
-            src={cover}
+            src={cheveretoVariant(cover, "th")}
             alt={`${album.name} 专辑封面`}
             loading="lazy"
             decoding="async"

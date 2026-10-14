@@ -12,6 +12,7 @@ import { useCallback, useEffect, useState } from "react";
 import EmptyState from "@/components/EmptyState";
 import { useToast } from "@/components/Toast";
 import { ApiClientError, getTrash, isStaleSession, purgeWork, restoreWork } from "@/lib/api";
+import { cheveretoVariant } from "@/lib/chevereto";
 import type { WorkListItem } from "@/lib/types";
 
 const PAGE = 24;
@@ -90,9 +91,9 @@ function TrashRow({
   return (
     <li className="trash-row">
       <div className="trash-thumb">
-        {/* 回收站内作品公开详情已 404，缩略图直接取外部 thumb_url */}
+        {/* 回收站内作品公开详情已 404，缩略图直接取外部 thumb_url（Build-M1：走 .th 变体） */}
         <img
-          src={work.thumb_url || work.media_url}
+          src={cheveretoVariant(work.thumb_url || work.media_url, "th")}
           alt={work.title || work.id}
           loading="lazy"
           decoding="async"

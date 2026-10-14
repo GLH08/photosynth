@@ -15,6 +15,7 @@
 import { useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
 
 import { formatDuration, formatResolution } from "@/lib/api";
+import { cheveretoVariant } from "@/lib/chevereto";
 import type { WorkListItem } from "@/lib/types";
 import QuickFeatureButton from "./QuickFeatureButton";
 import WorkManageButtons from "./WorkManageButtons";
@@ -54,12 +55,13 @@ export default function MasonryCard({
   onLongPress,
 }: Props) {
   const isVideo = work.type === "video";
-  // 图片：thumb → media_url 一次回退 → 断链兜底；
-  // 视频（5.7）：卡片显示 poster_url 海报（网格内零视频请求），失败退 thumb 再退 media。
+  // Build-M1：卡片一律加载 Chevereto `.th` 变体（原图 11-13MB，.th 仅 ~160KB）；
+  // 图片：th(thumb) → media_url 一次回退 → 断链兜底；
+  // 视频（5.7）：卡片显示 poster_url 海报（网格内零视频请求），失败退 th(thumb) 再退 media。
   const candidates = (
     isVideo
-      ? [work.poster_url, work.thumb_url, work.media_url]
-      : [work.thumb_url, work.media_url]
+      ? [work.poster_url, cheveretoVariant(work.thumb_url, "th"), work.media_url]
+      : [cheveretoVariant(work.thumb_url, "th"), work.media_url]
   ).filter((v, i, arr): v is string => Boolean(v) && arr.indexOf(v) === i);
   const [srcIdx, setSrcIdx] = useState(0);
   const [failed, setFailed] = useState(false);

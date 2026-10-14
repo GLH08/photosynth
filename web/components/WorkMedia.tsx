@@ -10,6 +10,7 @@
  */
 import { useState, type ReactNode } from "react";
 
+import { cheveretoVariant } from "@/lib/chevereto";
 import type { WorkDetail } from "@/lib/types";
 
 interface Props {
@@ -96,10 +97,11 @@ export default function WorkMedia({ work, previewUrl, onExitPreview, fill = fals
   }
 
   // 图片：thumb 打底 + 原图交叉淡入（加载失败保留 thumb，仍是全貌）
+  // Build-M1：打底层改用 `.md` 变体（比原图小两个数量级），原图仍是 media_url。
   const stack: ReactNode = (
     <>
       <img
-        src={work.thumb_url || work.media_url}
+        src={cheveretoVariant(work.thumb_url || work.media_url, "md")}
         alt=""
         aria-hidden="true"
         referrerPolicy="no-referrer"

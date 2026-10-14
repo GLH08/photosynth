@@ -15,6 +15,7 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from ..auth import require_admin
+from ..chevereto import chevereto_variant
 from ..errors import ApiError
 from ..ids import nanoid, utcnow_iso
 from ..models import Album, Tag, Work, WorkTag
@@ -112,7 +113,9 @@ def create_work(payload: WorkCreate, session: Session = Depends(get_session)):
             [r.model_dump() for r in payload.reference_images], ensure_ascii=False
         ),
         media_url=payload.media_url,
-        thumb_url=payload.thumb_url or payload.media_url,
+        # Build-M1：未提供 thumb_url 且 media_url 为 Chevereto 图片时，
+        # 默认存 `.th` 变体（而非 11MB 原图）；非 Chevereto / 非图片原样兜底。
+        thumb_url=payload.thumb_url or chevereto_variant(payload.media_url, "th"),
         poster_url=payload.poster_url,
         width=payload.width,
         height=payload.height,
