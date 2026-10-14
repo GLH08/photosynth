@@ -35,12 +35,29 @@ test("非 Chevereto URL：原样返回", () => {
   assert.equal(cheveretoSrcset(picsum, 1600), undefined);
 });
 
-test("已带变体的 URL：原样返回（不产生 .th.th）", () => {
+test("已带变体的 URL：同变体原样返回，不同变体替换（Build-M8，不产生 .th.th）", () => {
   const th = "https://chevereto.novaw.de/images-chevereto-remote/2026/10/01/hy-1409.th.png";
   const md = "https://chevereto.novaw.de/images-chevereto-remote/2026/10/01/hy-1409.md.png";
-  assert.equal(cheveretoVariant(th, "th"), th);
-  assert.equal(cheveretoVariant(th, "md"), th);
-  assert.equal(cheveretoVariant(md, "md"), md);
+  assert.equal(cheveretoVariant(th, "th"), th); // 已是目标变体 → 原样
+  assert.equal(cheveretoVariant(md, "md"), md); // 已是目标变体 → 原样
+  // `.th` + "md" → 替换为等比 `.md`（M1 入库的方形裁切默认 thumb 由此被纠正）
+  assert.equal(
+    cheveretoVariant(th, "md"),
+    "https://chevereto.novaw.de/images-chevereto-remote/2026/10/01/hy-1409.md.png",
+  );
+  // `.md` + "th" → 替换为 `.th`（通用工具仍双向）
+  assert.equal(
+    cheveretoVariant(md, "th"),
+    "https://chevereto.novaw.de/images-chevereto-remote/2026/10/01/hy-1409.th.png",
+  );
+});
+
+test("变体替换：保留 query / hash 与原始编码", () => {
+  const thWithQuery = `${HUMAN.replace(/\.png$/, ".th.png")}?v=2&x=1#frag`;
+  assert.equal(
+    cheveretoVariant(thWithQuery, "md"),
+    `${HUMAN.replace(/\.png$/, ".md.png")}?v=2&x=1#frag`,
+  );
 });
 
 test("带 query 的 URL：变体插入扩展名前，query 原样保留", () => {
@@ -63,23 +80,26 @@ test("无扩展名 / 无法解析：原样返回", () => {
   assert.equal(cheveretoVariant(null, "th"), "");
 });
 
-test("srcset：包含 .th / .md / 原图（w 描述符）", () => {
+test("srcset：默认档位为 .md（不再含方形裁切的 .th）＋ 原图 w 描述符", () => {
   const set = cheveretoSrcset(HUMAN, 2160);
   assert.ok(set, "应为 Chevereto 图片生成 srcset");
-  assert.match(set!, /hy-1409\.th\.png 320w/);
   assert.match(set!, /hy-1409\.md\.png 500w/);
+  assert.ok(!set!.includes(".th.png"), "默认 srcset 不得包含 .th 方形裁切");
   assert.match(set!, /hy-1409\.png 2160w/);
   assert.equal(CHEVERETO_VARIANT_WIDTH.th, 320);
   assert.equal(CHEVERETO_VARIANT_WIDTH.md, 500);
 });
 
-test("srcset：变体不小于原图时该变体项被跳过", () => {
-  // 原图 400：th(320) < 400 保留；md(500) ≥ 400 跳过
-  const set = cheveretoSrcset(HUMAN, 400);
-  assert.ok(set, "仍应生成 srcset（含 th 与原图）");
+test("srcset：显式传入 [\"th\", \"md\"] 时仍两档都生成（通用工具）", () => {
+  const set = cheveretoSrcset(HUMAN, 2160, ["th", "md"]);
+  assert.ok(set);
   assert.match(set!, /hy-1409\.th\.png 320w/);
-  assert.ok(!set!.includes(".md.png"), "md 不小于原图，应被跳过");
-  assert.match(set!, /hy-1409\.png 400w/);
-  // 原图比两档变体都小 → 无更小变体 → 不生成 srcset
+  assert.match(set!, /hy-1409\.md\.png 500w/);
+  assert.match(set!, /hy-1409\.png 2160w/);
+});
+
+test("srcset：默认只含 md，变体不小于原图时不生成 srcset", () => {
+  // 原图 400：md(500) ≥ 400 跳过 → 无更小变体 → 不生成 srcset
+  assert.equal(cheveretoSrcset(HUMAN, 400), undefined);
   assert.equal(cheveretoSrcset(HUMAN, 300), undefined);
 });

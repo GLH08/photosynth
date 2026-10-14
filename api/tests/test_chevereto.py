@@ -1,4 +1,4 @@
-"""Chevereto 变体派生单测（Build-M1）＋ 登记默认 thumb 走 `.th` 变体。"""
+"""Chevereto 变体派生单测（Build-M1）＋ 登记默认 thumb 走 `.md` 变体（Build-M8）。"""
 from __future__ import annotations
 
 from app.chevereto import chevereto_variant
@@ -46,15 +46,15 @@ def test_variant_non_image_unchanged():
     assert chevereto_variant(mp4, "md") == mp4
 
 
-def test_create_defaults_thumb_to_th_variant(admin):
-    """未提供 thumb_url 且 media_url 为 Chevereto 图片 → thumb_url = `.th` 变体。"""
-    payload = image_payload(media_url=HUMAN, thumb_url=None, external_file_id="th-default")
+def test_create_defaults_thumb_to_md_variant(admin):
+    """未提供 thumb_url 且 media_url 为 Chevereto 图片 → thumb_url = 等比 `.md` 变体。"""
+    payload = image_payload(media_url=HUMAN, thumb_url=None, external_file_id="md-default")
     r = admin.post("/api/admin/works", json=payload, headers=None)
     assert r.status_code == 201, r.text
     work = r.json()["work"]
     assert work["media_url"] == HUMAN
     assert work["thumb_url"] == (
-        "https://chevereto.novaw.de/images-chevereto-remote/2026/10/01/hy-1409.th.png"
+        "https://chevereto.novaw.de/images-chevereto-remote/2026/10/01/hy-1409.md.png"
     )
 
 

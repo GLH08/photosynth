@@ -113,9 +113,10 @@ def create_work(payload: WorkCreate, session: Session = Depends(get_session)):
             [r.model_dump() for r in payload.reference_images], ensure_ascii=False
         ),
         media_url=payload.media_url,
-        # Build-M1：未提供 thumb_url 且 media_url 为 Chevereto 图片时，
-        # 默认存 `.th` 变体（而非 11MB 原图）；非 Chevereto / 非图片原样兜底。
-        thumb_url=payload.thumb_url or chevereto_variant(payload.media_url, "th"),
+        # Build-M8：未提供 thumb_url 且 media_url 为 Chevereto 图片时，
+        # 默认存等比 `.md` 变体（而非 11MB 原图，也非 320×320 方形裁切的 `.th`）；
+        # 非 Chevereto / 非图片原样兜底。
+        thumb_url=payload.thumb_url or chevereto_variant(payload.media_url, "md"),
         poster_url=payload.poster_url,
         width=payload.width,
         height=payload.height,

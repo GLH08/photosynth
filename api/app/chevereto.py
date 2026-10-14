@@ -3,6 +3,9 @@
 Chevereto 为每张图片自动生成 `.th`（thumb）与 `.md`（medium）变体，
 规则是在最终扩展名前插入后缀。仅在「确定」时派生，其余一律原样返回：
 非 Chevereto 主机、已带变体、非图片扩展名（.mp4 等）、无扩展名、非法 URL。
+
+Build-M7 起 `.th` 被认定为 320×320 方形中心裁切（违反「永不裁切」），故登记时的
+默认 thumb 一律用等比 `.md`（见 routes/admin.py），`.th` 仅供本模块作为通用工具派生。
 """
 from __future__ import annotations
 

@@ -12,7 +12,9 @@
  *
  * 纪律（歧义一律原样返回，绝不猜测）：
  *   - 非 Chevereto URL（外部图床等）→ 原样返回；
- *   - 已带 `.th` / `.md` 变体的 URL → 原样返回（避免 `.th.th`）；
+ *   - 已带目标变体的 URL（如 `.md` + "md"）→ 原样返回；
+ *   - 已带「不同」变体的 URL（如 `.th` + "md"）→ 替换成目标变体（Build-M8：避免
+ *     M1 时期入库的 `.th` 默认 thumb 被当成「已是变体」而把方形裁切渲染进卡片）；
  *   - 非图片扩展名（.mp4 等）→ 原样返回（视频本体没有变体）；
  *   - 无扩展名 / 无法解析的 URL → 原样返回；
  *   - 路径已百分号编码时不动原串（直接对原始字符串做手术，不经过 URL 重编码）。
@@ -30,7 +32,8 @@ export const CHEVERETO_VARIANT_WIDTH: Record<CheveretoVariant, number> = {
 };
 
 const IMAGE_EXT = new Set(["png", "jpg", "jpeg", "webp", "gif", "avif", "bmp"]);
-const VARIANT_RE = /\.(?:th|md)\.(?:png|jpe?g|webp|gif|avif|bmp)$/i;
+const IMAGE_EXT_RE = "png|jpe?g|webp|gif|avif|bmp";
+const VARIANT_CAPTURE_RE = new RegExp(`^(.*)\\.(th|md)\\.(${IMAGE_EXT_RE})$`, "i");
 
 /** 是否 Chevereto 托管的媒体 URL（按主机名判定）。 */
 export function isCheveretoUrl(url: string): boolean {
@@ -64,7 +67,15 @@ export function cheveretoVariant(
 
   const slash = main.lastIndexOf("/");
   const name = main.slice(slash + 1);
-  if (VARIANT_RE.test(name)) return url; // 已是变体
+  const dir = main.slice(0, slash + 1);
+
+  // 已带变体：等于目标变体则原样返回，不同则替换（Build-M8）。
+  const existing = name.match(VARIANT_CAPTURE_RE);
+  if (existing) {
+    const [, base, current, ext] = existing;
+    if (current.toLowerCase() === variant) return url;
+    return `${dir}${base}.${variant}.${ext}${suffix}`;
+  }
 
   const dot = name.lastIndexOf(".");
   if (dot <= 0) return url; // 无扩展名
@@ -73,7 +84,7 @@ export function cheveretoVariant(
   const base = name.slice(0, dot);
   if (!base) return url;
 
-  return `${main.slice(0, slash + 1)}${base}.${variant}.${extRaw}${suffix}`;
+  return `${dir}${base}.${variant}.${extRaw}${suffix}`;
 }
 
 /**
@@ -82,12 +93,13 @@ export function cheveretoVariant(
  *
  * Build-M7：展示路径（卡片 / 封面 / 回收站 / 详情打底）已全部改成单一等比 `.md` src，
  * 不再使用 srcset —— 含原图的 srcset 在 DPR≥2 屏幕会让浏览器挑回 11MB 原图。
- * 本函数仅作为通用工具保留；任何展示调用都必须排除方形裁切的 `.th`（即显式传 ["md"]）。
+ * Build-M8：默认档位从 `["th", "md"]` 收窄为 `["md"]`，任何默认调用都不会再拿到
+ * 320×320 方形裁切的 `.th`；仍需要 `.th` 的调用方必须显式传入（不推荐用于展示）。
  */
 export function cheveretoSrcset(
   url: string | null | undefined,
   originalWidth: number,
-  variants: readonly CheveretoVariant[] = ["th", "md"],
+  variants: readonly CheveretoVariant[] = ["md"],
 ): string | undefined {
   if (!url) return undefined;
   const entries: string[] = [];
