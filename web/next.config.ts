@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: "standalone", // DESIGN 1.2：产物镜像小、启动快
   reactStrictMode: true,
+  poweredByHeader: false, // Build-M6：不回带 X-Powered-By，收敛技术栈指纹
   /**
    * 安全头（M6 安全清单）：
    * - X-Content-Type-Options: nosniff（禁 MIME 嗅探）

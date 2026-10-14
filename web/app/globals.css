@@ -188,6 +188,35 @@ button {
   padding-inline: var(--gutter-page);
 }
 
+/* 跳转链接（Build-M6 可访问性）：默认移出视口，键盘 Tab 聚焦时落到左上角 */
+.skip-link {
+  position: absolute;
+  left: var(--sp-3);
+  top: var(--sp-3);
+  z-index: 200;
+  padding: 10px var(--sp-4);
+  border-radius: var(--r-md);
+  background: var(--c-primary-600);
+  color: var(--c-inverse);
+  font-size: var(--fs-14);
+  font-weight: 500;
+  text-decoration: none;
+  box-shadow: var(--sh-2);
+  transform: translateY(calc(-100% - var(--sp-4)));
+  transition: transform var(--dur-hover) var(--ease);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+  outline: none;
+  box-shadow: var(--focus-ring), var(--sh-2);
+}
+
+/* 主内容落点：程序化聚焦时不画默认轮廓（skip link 已给出焦点提示） */
+#main:focus {
+  outline: none;
+}
+
 .page-section {
   padding-block: var(--sp-7);
 }

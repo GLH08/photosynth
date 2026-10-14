@@ -57,6 +57,7 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
 }
 
 export const config = {
-  // _next 静态资源与 favicon 不进 middleware（其余全量校验）
-  matcher: ["/((?!_next|favicon.ico).*)"],
+  // _next 静态资源与站点品牌/SEO 资产（favicon.ico / icon.png / robots.txt）不进 middleware
+  // （其余全量校验）
+  matcher: ["/((?!_next|favicon.ico|icon.png|robots.txt).*)"],
 };

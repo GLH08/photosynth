@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 
 import HideOnAdmin from "@/components/HideOnAdmin";
 import SiteFooter from "@/components/SiteFooter";
@@ -16,6 +16,17 @@ export const metadata: Metadata = {
 };
 
 /**
+ * 视口（Build-M6）：device-width 适配移动端；viewportFit=cover 让 iOS 安全区生效；
+ * themeColor 取品牌钴蓝（--c-primary-600），移动端浏览器 UI 与站点同色。
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#3550CF",
+};
+
+/**
  * 全局布局（DESIGN 4.2）：
  * Header（sticky 毛玻璃白）→ 内容区（max-width 1440px，gutter 24/16px）→ Footer（stats 摘要）。
  */
@@ -26,8 +37,13 @@ export default function RootLayout({
     <html lang="zh-CN" className={notoSansSC.variable}>
       <body>
         <ToastProvider>
+          <a href="#main" className="skip-link">
+            跳到主要内容
+          </a>
           <SiteHeader />
-          <div className="page-shell">{children}</div>
+          <main id="main" tabIndex={-1} className="page-shell">
+            {children}
+          </main>
           <HideOnAdmin>
             <SiteFooter />
           </HideOnAdmin>
