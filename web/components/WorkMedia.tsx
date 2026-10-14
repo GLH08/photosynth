@@ -87,7 +87,7 @@ export default function WorkMedia({ work, previewUrl, onExitPreview, fill = fals
         controls
         preload="metadata"
         playsInline
-        poster={work.poster_url ?? work.thumb_url}
+        poster={cheveretoVariant(work.poster_url ?? work.thumb_url, "md")}
         src={work.media_url}
         className={fill ? "media-fill media-fade-in" : "media-fade-in"}
         style={fill ? undefined : { maxWidth: "100%", maxHeight: "78vh", marginInline: "auto" }}

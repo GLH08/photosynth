@@ -60,11 +60,12 @@ export default function MasonryCard({
 }: Props) {
   const isVideo = work.type === "video";
   // Build-M1：卡片一律加载 Chevereto `.th` 变体（原图 11-13MB，.th 仅 ~160KB）；
+  // Build-M3：视频封面帧 poster_url 是 11-13MB 首帧原图，卡片用其 `.md` 变体（~0.68MB）。
   // 图片：th(thumb) → media_url 一次回退 → 断链兜底；
-  // 视频（5.7）：卡片显示 poster_url 海报（网格内零视频请求），失败退 th(thumb) 再退 media。
+  // 视频（5.7）：卡片显示 md(poster) 海报（网格内零视频请求），失败退 th(thumb) 再退 media。
   const candidates = (
     isVideo
-      ? [work.poster_url, cheveretoVariant(work.thumb_url, "th"), work.media_url]
+      ? [cheveretoVariant(work.poster_url, "md"), cheveretoVariant(work.thumb_url, "th"), work.media_url]
       : [cheveretoVariant(work.thumb_url, "th"), work.media_url]
   ).filter((v, i, arr): v is string => Boolean(v) && arr.indexOf(v) === i);
   const [srcIdx, setSrcIdx] = useState(0);
