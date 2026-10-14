@@ -106,7 +106,7 @@ export default function FilterBar({
               key={opt.value}
               type="button"
               className="chip"
-              aria-pressed={(filters.sort ?? "latest") === opt.value}
+              aria-pressed={(filters.sort ?? "name") === opt.value}
               onClick={() => patch({ sort: opt.value })}
             >
               {opt.label}

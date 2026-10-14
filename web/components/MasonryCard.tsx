@@ -248,6 +248,7 @@ export default function MasonryCard({
             <WorkManageButtons
               id={work.id}
               title={work.title}
+              type={work.type}
               compact
               stopPropagation
               onDeleted={onDeleted ? () => onDeleted(work) : undefined}

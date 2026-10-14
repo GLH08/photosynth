@@ -16,12 +16,15 @@ import { useEffect, useRef, useState, type MouseEvent } from "react";
 
 import { useToast } from "@/components/Toast";
 import { ApiClientError, clientSend, isStaleSession } from "@/lib/api";
+import type { WorkType } from "@/lib/types";
 
 interface Props {
   id: string;
   title: string;
-  /** 删除成功后回调（默认 replace 回 /gallery） */
+  /** 删除成功后回调（默认按作品类型 replace 回 /videos 或 /gallery） */
   onDeleted?: () => void;
+  /** Build-L：无 onDeleted 时的回退目标类型（video → /videos，否则 /gallery） */
+  type?: WorkType;
   /** 紧凑态（卡片 hover 浮层用，小按钮） */
   compact?: boolean;
   /** 阻止事件冒泡（卡片内嵌时避免触发打开 lightbox） */
@@ -32,6 +35,7 @@ export default function WorkManageButtons({
   id,
   title,
   onDeleted,
+  type,
   compact = false,
   stopPropagation = false,
 }: Props) {
@@ -66,7 +70,7 @@ export default function WorkManageButtons({
       await clientSend("DELETE", `/api/admin/works/${id}?confirm=true`);
       toast.push(`已移入回收站「${title || id}」，可在回收站恢复`, "success");
       if (onDeleted) onDeleted();
-      else router.replace("/gallery");
+      else router.replace(type === "video" ? "/videos" : "/gallery");
       router.refresh();
     } catch (err) {
       if (err instanceof ApiClientError && err.status === 401) {

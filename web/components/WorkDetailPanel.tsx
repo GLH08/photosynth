@@ -238,6 +238,7 @@ export default function WorkDetailPanel({
             <WorkManageButtons
               id={work.id}
               title={work.title}
+              type={work.type}
               onDeleted={onDeleted ? () => onDeleted(work.id) : undefined}
             />
           </div>

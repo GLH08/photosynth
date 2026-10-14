@@ -3,7 +3,8 @@
 /**
  * /works/[id] 直访形态（DESIGN 4.3-⑧ / 5.6「独立详情页复用」）：
  * 居中双栏卡片（左媒体右信息，同 lightbox 信息架构），共享 WorkMedia / WorkDetailPanel。
- * 前台管理（Build-E【2】）：编辑/删除按钮常驻；删除成功回 /gallery。
+ * 前台管理（Build-E【2】）：编辑/删除按钮常驻；删除成功回类型对应的列表
+ * （视频 → /videos，图片 → /gallery，Build-L）。
  */
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -29,7 +30,7 @@ export default function WorkPageBody({ work: initialWork }: { work: WorkDetail }
           onPreviewRef={setPreviewUrl}
           manage
           onFeaturedChange={(next) => setWork((w) => ({ ...w, featured: next }))}
-          onDeleted={() => router.replace("/gallery")}
+          onDeleted={() => router.replace(work.type === "video" ? "/videos" : "/gallery")}
         />
       </div>
     </div>

@@ -100,6 +100,9 @@ export default async function WorkPage({ params }: Props) {
   }
   const recoItems = reco.filter((it) => it.id !== work.id).slice(0, 8);
 
+  // Build-L：返回目标随作品类型切换（视频 → /videos，图片 → /gallery）
+  const listHref = work.type === "video" ? "/videos" : "/gallery";
+
   return (
     <div className="container">
       <script
@@ -110,8 +113,8 @@ export default async function WorkPage({ params }: Props) {
       />
 
       <div className="work-back-row">
-        <Link href="/gallery" className="back-link">
-          ← 返回画廊
+        <Link href={listHref} className="back-link">
+          ← {work.type === "video" ? "返回视频" : "返回画廊"}
         </Link>
         <nav aria-label="相邻作品" style={{ display: "flex", gap: 8 }}>
           {data.prev_id && (

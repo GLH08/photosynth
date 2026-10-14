@@ -379,7 +379,7 @@ export default function WorkForm({ albums, tags, initial }: Props) {
       } else {
         toast.push(`登记成功：${f.title.trim() || res?.work?.id || "新作品"}`, "success");
       }
-      router.push("/");
+      router.push(f.type === "video" ? "/videos" : "/gallery");
       router.refresh();
     } catch (err) {
       if (err instanceof ApiClientError && err.status === 401) {

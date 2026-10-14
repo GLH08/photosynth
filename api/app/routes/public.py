@@ -270,7 +270,7 @@ def list_works(
     ratio: RatioBucket | None = None,
     featured: bool | None = None,
     q: str | None = Query(default=None, max_length=200),
-    sort: SortOrder = "latest",
+    sort: SortOrder = "name",
     cursor: str | None = None,
     page: int | None = Query(default=None, ge=1),
     limit: int = Query(default=24, ge=1, le=48),
@@ -352,13 +352,15 @@ def get_work(
     ratio: RatioBucket | None = None,
     featured: bool | None = None,
     q: str | None = Query(default=None, max_length=200),
-    sort: SortOrder = "latest",
+    sort: SortOrder = "name",
 ):
     work = load_work(session, work_id)
     if work is None:
         raise ApiError(404, "work_not_found", "作品不存在")
+    # Build-L：调用方未显式传 type 时，邻接导航限定在该作品自身类型内
+    # （视频详情上一幅/下一幅停留在视频序列；显式 type 参数行为不变）。
     conds = _filter_conditions(
-        type=type, album=album, tag=tag, ratio=ratio, featured=featured, q=q
+        type=type or work.type, album=album, tag=tag, ratio=ratio, featured=featured, q=q
     )
     prev_id, next_id = _neighbors(session, work, conds, sort)
     return cached_json(
@@ -413,7 +415,7 @@ def get_album(
     ratio: RatioBucket | None = None,
     featured: bool | None = None,
     q: str | None = Query(default=None, max_length=200),
-    sort: SortOrder = "latest",
+    sort: SortOrder = "name",
     cursor: str | None = None,
     page: int | None = Query(default=None, ge=1),
     limit: int = Query(default=24, ge=1, le=48),

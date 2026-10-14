@@ -100,7 +100,7 @@ def mk_work(
 
 
 def test_list_all_works_and_lightbox_fields(client, db):
-    """无发布流：全部作品均展示。"""
+    """无发布流：全部作品均展示。Build-L：默认按名称自然排序。"""
     mk_work(db, 1)
     mk_work(db, 2)
     mk_work(db, 3)
@@ -108,7 +108,7 @@ def test_list_all_works_and_lightbox_fields(client, db):
     assert r.status_code == 200
     body = r.json()
     ids = [it["id"] for it in body["items"]]
-    assert ids == ["wk_test003", "wk_test002", "wk_test001"]  # latest 排序
+    assert ids == ["wk_test001", "wk_test002", "wk_test003"]  # 默认按名称（作品1<作品2<作品3）
     assert body["has_more"] is False and body["next_cursor"] is None
     item = body["items"][0]
     # 列表项即含 lightbox 所需字段（DESIGN 3.1）
@@ -142,12 +142,12 @@ def test_detail_fields_and_404(client, db):
 
 
 def test_pagination_cursor_no_overlap_no_gap(client, db):
-    for i in range(1, 8):  # published_at 2026-09-01..07，latest 排序 = 07→01
+    for i in range(1, 8):  # 默认名称排序：作品1→作品7
         mk_work(db, i)
 
     full = client.get("/api/works?limit=48").json()
     full_ids = [it["id"] for it in full["items"]]
-    assert full_ids == [f"wk_test{i:03d}" for i in range(7, 0, -1)]
+    assert full_ids == [f"wk_test{i:03d}" for i in range(1, 8)]
 
     p1 = client.get("/api/works?limit=3").json()
     assert p1["has_more"] is True and p1["next_cursor"]
@@ -162,15 +162,18 @@ def test_pagination_cursor_no_overlap_no_gap(client, db):
 
 
 def test_pagination_stable_when_new_work_inserted_midway(client, db):
-    """cursor 优于 offset 的核心保证：翻页期间新增数据不重不漏。"""
+    """cursor 优于 offset 的核心保证：翻页期间新增数据不重不漏。
+
+    Build-L 默认改为名称序后，本用例显式指定 sort=latest 以保持「时间序」语义。
+    """
     for i in range(1, 7):
         mk_work(db, i)
-    p1 = client.get("/api/works?limit=3").json()
+    p1 = client.get("/api/works?sort=latest&limit=3").json()
     seen = {it["id"] for it in p1["items"]}
 
     # 翻页间隙插入一幅更新的作品（应只影响第一页，不造成后页重复/跳过）
     mk_work(db, 99, published_at="2026-10-01T00:00:00Z")
-    p2 = client.get(f"/api/works?limit=3&cursor={p1['next_cursor']}").json()
+    p2 = client.get(f"/api/works?sort=latest&limit=3&cursor={p1['next_cursor']}").json()
     ids2 = [it["id"] for it in p2["items"]]
     assert ids2 == ["wk_test003", "wk_test002", "wk_test001"]
     assert not (seen & set(ids2))
@@ -186,7 +189,7 @@ def test_invalid_cursor_400(client, db):
 def test_sort_oldest_reverses(client, db):
     for i in range(1, 4):
         mk_work(db, i)
-    latest = [it["id"] for it in client.get("/api/works").json()["items"]]
+    latest = [it["id"] for it in client.get("/api/works?sort=latest").json()["items"]]
     oldest = [it["id"] for it in client.get("/api/works?sort=oldest").json()["items"]]
     assert latest == ["wk_test003", "wk_test002", "wk_test001"]
     assert oldest == list(reversed(latest))
@@ -267,21 +270,24 @@ def test_sort_name_prev_next(client, db):
 
 
 def test_page_offset_pagination(client, db):
-    """Build-F【1】分页模式：page 为 1-based offset 分页，供页码随机跳转。"""
+    """Build-F【1】分页模式：page 为 1-based offset 分页，供页码随机跳转。
+
+    Build-L 默认改为名称自然序（作品1→作品10），本用例验证默认排序下的 offset 分页。
+    """
     for i in range(1, 11):
         mk_work(db, i)
 
     p1 = client.get("/api/works?limit=3&page=1").json()
-    assert [it["id"] for it in p1["items"]] == ["wk_test010", "wk_test009", "wk_test008"]
+    assert [it["id"] for it in p1["items"]] == ["wk_test001", "wk_test002", "wk_test003"]
     assert p1["total"] == 10 and p1["has_more"] is True
     assert p1["next_cursor"] is None  # page 模式不返回 cursor
 
     p2 = client.get("/api/works?limit=3&page=2").json()
-    assert [it["id"] for it in p2["items"]] == ["wk_test007", "wk_test006", "wk_test005"]
+    assert [it["id"] for it in p2["items"]] == ["wk_test004", "wk_test005", "wk_test006"]
     assert p2["has_more"] is True
 
     p4 = client.get("/api/works?limit=3&page=4").json()
-    assert [it["id"] for it in p4["items"]] == ["wk_test001"]
+    assert [it["id"] for it in p4["items"]] == ["wk_test010"]
     assert p4["has_more"] is False
 
     # 越界页 → 空列表且 has_more False（页码控件据此收敛）
@@ -297,7 +303,7 @@ def test_page_offset_pagination(client, db):
         mk_work(db, 20 + i, album=album)
     ab = client.get("/api/albums/city?limit=2&page=2").json()
     assert ab["album"]["slug"] == "city"
-    assert [it["id"] for it in ab["items"]] == ["wk_test021"]
+    assert [it["id"] for it in ab["items"]] == ["wk_test023"]  # 名称序 021→022→023，第 2 页 = 023
     assert ab["has_more"] is False and ab["next_cursor"] is None
 
 
@@ -386,13 +392,16 @@ def test_media_download_missing_kind_404(client, db):
 
 
 def test_pagination_same_timestamp_deterministic_order(client, db):
-    """Build-E【1】回归：批量导入同 created_at 时顺序确定性（id DESC），翻页无重无漏。"""
+    """Build-E【1】回归：批量导入同 created_at 时顺序确定性（id DESC），翻页无重无漏。
+
+    Build-L 默认改为名称序后，本用例显式指定 sort=latest 以保持「时间序」语义。
+    """
     for i in range(1, 31):
         mk_work(db, i, created_at="2026-10-01T12:00:00Z")
     paged: list[str] = []
     cursor = None
     while True:
-        url = "/api/works?limit=7" + (f"&cursor={cursor}" if cursor else "")
+        url = "/api/works?sort=latest&limit=7" + (f"&cursor={cursor}" if cursor else "")
         body = client.get(url).json()
         paged.extend(it["id"] for it in body["items"])
         if not body["has_more"]:
@@ -404,21 +413,24 @@ def test_pagination_same_timestamp_deterministic_order(client, db):
 
 
 def test_pagination_includes_null_published_at(client, db):
-    """Build-E【1】回归：published_at 为 NULL 的行不被提前终止（排序键用 created_at）。"""
+    """Build-E【1】回归：published_at 为 NULL 的行不被提前终止（排序键用 created_at）。
+
+    Build-L 默认改为名称序后，本用例显式指定 sort=latest 以保持「时间序」语义。
+    """
     for i in range(1, 6):
         mk_work(db, i, null_published=(i % 2 == 0))  # 偶数行 published_at 缺失
-    body = client.get("/api/works?limit=48").json()
+    body = client.get("/api/works?sort=latest&limit=48").json()
     assert body["total"] == 5
     assert [it["id"] for it in body["items"]] == [f"wk_test{i:03d}" for i in range(5, 0, -1)]
     assert body["has_more"] is False
 
     # 分页走到底同样无遗漏
-    p1 = client.get("/api/works?limit=2").json()
+    p1 = client.get("/api/works?sort=latest&limit=2").json()
     assert p1["total"] == 5 and p1["has_more"] is True
     seen = [it["id"] for it in p1["items"]]
     cursor = p1["next_cursor"]
     while True:
-        page = client.get(f"/api/works?limit=2&cursor={cursor}").json()
+        page = client.get(f"/api/works?sort=latest&limit=2&cursor={cursor}").json()
         seen.extend(it["id"] for it in page["items"])
         if not page["has_more"]:
             break
@@ -526,25 +538,46 @@ def test_featured_and_q_filters(client, db):
 
 
 def test_detail_prev_next_same_filter_sequence(client, db):
+    """Build-L 默认改为名称序后，本用例显式指定 sort=latest 以保持「时间序」邻接语义。"""
     for i in range(1, 6):
         mk_work(db, i)  # latest: 005 → 001
 
-    mid = client.get("/api/works/wk_test003").json()
+    mid = client.get("/api/works/wk_test003?sort=latest").json()
     assert mid["prev_id"] == "wk_test004" and mid["next_id"] == "wk_test002"
-    newest = client.get("/api/works/wk_test005").json()
+    newest = client.get("/api/works/wk_test005?sort=latest").json()
     assert newest["prev_id"] is None and newest["next_id"] == "wk_test004"
-    oldest = client.get("/api/works/wk_test001").json()
+    oldest = client.get("/api/works/wk_test001?sort=latest").json()
     assert oldest["prev_id"] == "wk_test002" and oldest["next_id"] is None
 
     # 同筛选序列：加 ratio 后邻接只在竖图内计算
     mk_work(db, 6, w=1000, h=1500, published_at="2026-09-10T08:00:00Z")
     mk_work(db, 7, w=1000, h=1600, published_at="2026-09-11T08:00:00Z")
     mk_work(db, 8, w=1600, h=1000, published_at="2026-09-12T08:00:00Z")  # 横图，插入序列但不属竖图
-    r = client.get("/api/works/wk_test006?ratio=portrait").json()
+    r = client.get("/api/works/wk_test006?ratio=portrait&sort=latest").json()
     assert r["prev_id"] == "wk_test007" and r["next_id"] is None
     # sort=oldest 时方向翻转
     r2 = client.get("/api/works/wk_test003?sort=oldest").json()
     assert r2["prev_id"] == "wk_test002" and r2["next_id"] == "wk_test004"
+
+
+def test_detail_prev_next_scoped_to_same_type_by_default(client, db):
+    """Build-L：未显式传 type 时，详情邻接限定在作品自身类型内（图片/视频互不串场）。"""
+    mk_work(db, 1, type="image")
+    mk_work(db, 2, type="video")
+    mk_work(db, 3, type="image")
+    mk_work(db, 4, type="video")
+
+    # 图片作品 003：邻接只在图片序列（名称序 001 → 003）内
+    r3 = client.get("/api/works/wk_test003").json()
+    assert r3["prev_id"] == "wk_test001" and r3["next_id"] is None
+    r1 = client.get("/api/works/wk_test001").json()
+    assert r1["prev_id"] is None and r1["next_id"] == "wk_test003"
+    # 视频作品 004：与其相邻的是视频 002，而非图片
+    rv4 = client.get("/api/works/wk_test004").json()
+    assert rv4["prev_id"] == "wk_test002" and rv4["next_id"] is None
+    # 显式 type=video 覆盖自身类型：图片作品也能拿到视频序列邻接
+    ov = client.get("/api/works/wk_test001?type=video").json()
+    assert ov["prev_id"] is None and ov["next_id"] == "wk_test002"
 
 
 # ---------------------------------------------------------------- media 302

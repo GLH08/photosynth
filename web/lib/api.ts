@@ -44,7 +44,7 @@ export function buildWorksQuery(p: WorksQuery): string {
   for (const t of p.tags ?? []) sp.append("tag", t);
   if (p.featured) sp.set("featured", "1");
   if (p.q) sp.set("q", p.q);
-  if (p.sort && p.sort !== "latest") sp.set("sort", p.sort);
+  if (p.sort && p.sort !== "name") sp.set("sort", p.sort);
   if (p.limit) sp.set("limit", String(p.limit));
   if (p.cursor) sp.set("cursor", p.cursor);
   if (p.page && p.page > 1) sp.set("page", String(p.page));
@@ -59,7 +59,7 @@ export function buildDetailQuery(f: GalleryFilters): string {
   for (const t of f.tags ?? []) sp.append("tag", t);
   if (f.featured) sp.set("featured", "1");
   if (f.q) sp.set("q", f.q);
-  if (f.sort && f.sort !== "latest") sp.set("sort", f.sort);
+  if (f.sort && f.sort !== "name") sp.set("sort", f.sort);
   return sp.toString();
 }
 
@@ -310,7 +310,7 @@ export function parseFiltersFromSearchParams(
     q: first(sp.q) || undefined,
     sort: SORT_VALUES.includes(sortRaw as SortOrder)
       ? (sortRaw as SortOrder)
-      : undefined,
+      : "name", // Build-L：默认按名称（自然序）；显式 ?sort=latest/oldest 仍生效
   };
 }
 
